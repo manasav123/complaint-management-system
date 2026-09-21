@@ -862,7 +862,7 @@ def classify_complaint(data: dict):
             word in text
             for word in [
                 "hostel",
-                "room",
+                "hostel room",
                 "water supply",
                 "mess",
                 "food",

@@ -6,24 +6,20 @@ function Complaint() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("medium");
-
+  const [message, setMessage] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
-  const [message, setMessage] = useState("");
 
-  // ---------------------------------------------------------
-  // AI CLASSIFICATION
-  // ---------------------------------------------------------
-
-  const analyzeComplaint = async () => {
+  const handleAIClassify = async () => {
     if (!title || !description) {
-      setAiMessage("Enter the title and description first.");
+      setAiMessage(
+        "Please enter the complaint title and description first."
+      );
       return;
     }
 
     setAiLoading(true);
     setAiMessage("");
-    setMessage("");
 
     try {
       const response = await api.post("/ai/classify", {
@@ -33,7 +29,6 @@ function Complaint() {
 
       if (response.data.error) {
         setAiMessage(response.data.error);
-        setAiLoading(false);
         return;
       }
 
@@ -41,19 +36,15 @@ function Complaint() {
       setPriority(response.data.priority);
 
       setAiMessage(
-        `AI classified this complaint as ${response.data.category} with ${response.data.priority} priority.`
+        `AI classified this as ${response.data.category} with ${response.data.priority} priority.`
       );
     } catch (error) {
-      console.error("AI classification error:", error);
-      setAiMessage("AI classification failed.");
+      console.error(error);
+      setAiMessage("AI classification failed. Please try again.");
+    } finally {
+      setAiLoading(false);
     }
-
-    setAiLoading(false);
   };
-
-  // ---------------------------------------------------------
-  // SUBMIT COMPLAINT
-  // ---------------------------------------------------------
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -92,8 +83,8 @@ function Complaint() {
       setPriority("medium");
       setAiMessage("");
     } catch (error) {
-      console.error(error);
       setMessage("Complaint submission failed.");
+      console.error(error);
     }
   };
 
@@ -106,9 +97,7 @@ function Complaint() {
             COMPLAINT MANAGEMENT
           </p>
 
-          <h1>
-            Submit a Complaint
-          </h1>
+          <h1>Submit a Complaint</h1>
 
           <p>
             Tell us about the issue and we'll make sure it reaches
@@ -124,7 +113,6 @@ function Complaint() {
           {/* TITLE */}
 
           <div className="form-group">
-
             <label htmlFor="title">
               Complaint Title
             </label>
@@ -136,15 +124,14 @@ function Complaint() {
               onChange={(event) =>
                 setTitle(event.target.value)
               }
-              placeholder="Example: Hostel water supply problem"
+              placeholder="Example: Classroom fan not working"
             />
-
           </div>
+
 
           {/* DESCRIPTION */}
 
           <div className="form-group">
-
             <label htmlFor="description">
               Description
             </label>
@@ -157,21 +144,22 @@ function Complaint() {
               }
               placeholder="Describe the problem in detail..."
             />
-
           </div>
+
 
           {/* AI BUTTON */}
 
           <button
             type="button"
-            className="ai-analyze-button"
-            onClick={analyzeComplaint}
+            className="ai-button"
+            onClick={handleAIClassify}
             disabled={aiLoading}
           >
             {aiLoading
-              ? "🤖 Analyzing..."
-              : "🤖 Analyze Complaint with AI"}
+              ? "🤖 AI Analyzing..."
+              : "🤖 Classify with AI"}
           </button>
+
 
           {/* AI MESSAGE */}
 
@@ -181,12 +169,12 @@ function Complaint() {
             </div>
           )}
 
+
           {/* CATEGORY + PRIORITY */}
 
           <div className="form-row">
 
             <div className="form-group">
-
               <label htmlFor="category">
                 Category
               </label>
@@ -198,7 +186,6 @@ function Complaint() {
                   setCategory(event.target.value)
                 }
               >
-
                 <option value="">
                   Select category
                 </option>
@@ -226,13 +213,11 @@ function Complaint() {
                 <option value="Other">
                   Other
                 </option>
-
               </select>
-
             </div>
 
-            <div className="form-group">
 
+            <div className="form-group">
               <label htmlFor="priority">
                 Priority
               </label>
@@ -244,7 +229,6 @@ function Complaint() {
                   setPriority(event.target.value)
                 }
               >
-
                 <option value="low">
                   Low
                 </option>
@@ -256,12 +240,11 @@ function Complaint() {
                 <option value="high">
                   High
                 </option>
-
               </select>
-
             </div>
 
           </div>
+
 
           {/* SUBMIT */}
 
@@ -272,7 +255,8 @@ function Complaint() {
             Submit Complaint
           </button>
 
-          {/* SUBMIT MESSAGE */}
+
+          {/* SUCCESS / ERROR MESSAGE */}
 
           {message && (
             <div className="form-message">
@@ -281,6 +265,7 @@ function Complaint() {
           )}
 
         </form>
+
 
         <a
           href="/dashboard"
