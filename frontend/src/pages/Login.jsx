@@ -25,6 +25,13 @@ function Login() {
         return;
       }
 
+      // Save authentication token
+      localStorage.setItem(
+        "token",
+        response.data.token
+      );
+
+      // Save logged-in user
       localStorage.setItem(
         "user",
         JSON.stringify(response.data.user)

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -7,12 +8,15 @@ import MyComplaints from "./pages/MyComplaints";
 import AdminComplaints from "./pages/AdminComplaints";
 import StaffComplaints from "./pages/StaffComplaints";
 import Analytics from "./pages/Analytics";
+import ProtectedRoute from "./ProtectedRoute";
+
 function Home() {
   return (
     <div className="home-page">
       <nav className="main-nav">
         <div className="brand">
           <div className="brand-icon">🏫</div>
+
           <div>
             <h2>AI-Powered Complaint System</h2>
             <p>Your Voice, A Better Campus</p>
@@ -20,9 +24,17 @@ function Home() {
         </div>
 
         <div className="nav-links">
-          <a href="/" className="nav-link active">Home</a>
-          <a href="/login" className="nav-link">Login</a>
-          <a href="/register" className="nav-link">Register</a>
+          <a href="/" className="nav-link active">
+            Home
+          </a>
+
+          <a href="/login" className="nav-link">
+            Login
+          </a>
+
+          <a href="/register" className="nav-link">
+            Register
+          </a>
         </div>
       </nav>
 
@@ -53,41 +65,70 @@ function Home() {
 
           <div className="home-illustration">
             <div className="home-icon">🏫</div>
-            <div className="floating-icon icon-one">📝</div>
-            <div className="floating-icon icon-two">📋</div>
-            <div className="floating-icon icon-three">✨</div>
+
+            <div className="floating-icon icon-one">
+              📝
+            </div>
+
+            <div className="floating-icon icon-two">
+              📋
+            </div>
+
+            <div className="floating-icon icon-three">
+              ✨
+            </div>
           </div>
         </section>
 
         <section className="home-features">
           <h2>How It Works</h2>
-          <p>Simple, transparent, and easy to use</p>
+
+          <p>
+            Simple, transparent, and easy to use
+          </p>
 
           <div className="feature-grid">
             <div className="feature-card">
               <div className="feature-icon">📝</div>
+
               <h3>Submit</h3>
-              <p>Report your college issue quickly and easily.</p>
+
+              <p>
+                Report your college issue quickly and easily.
+              </p>
             </div>
 
             <div className="feature-card">
               <div className="feature-icon">🔍</div>
+
               <h3>Track</h3>
-              <p>Check the progress of your complaint anytime.</p>
+
+              <p>
+                Check the progress of your complaint anytime.
+              </p>
             </div>
 
             <div className="feature-card">
               <div className="feature-icon">✅</div>
+
               <h3>Resolve</h3>
-              <p>Staff can manage and resolve reported issues.</p>
+
+              <p>
+                Staff can manage and resolve reported issues.
+              </p>
             </div>
           </div>
         </section>
       </main>
 
       <footer className="main-footer">
-        <strong>AI-Powered Complaint System</strong>
-        <span>Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️</span>
+        <strong>
+          AI-Powered Complaint System
+        </strong>
+
+        <span>
+          Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️
+        </span>
       </footer>
     </div>
   );
@@ -97,15 +138,102 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/complaint" element={<Complaint />} />
-        <Route path="/my-complaints" element={<MyComplaints />} />
-        <Route path="/admin-complaints" element={<AdminComplaints />} />
-        <Route path="/staff-complaints" element={<StaffComplaints />} />
-        <Route path="/analytics" element={<Analytics />} />
+
+        {/* ================= PUBLIC ROUTES ================= */}
+
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/register"
+          element={<Register />}
+        />
+
+
+        {/* ================= LOGGED-IN ROUTES ================= */}
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute
+              allowedRoles={["student", "staff", "admin"]}
+            >
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* ================= STUDENT ROUTES ================= */}
+
+        <Route
+          path="/complaint"
+          element={
+            <ProtectedRoute
+              allowedRoles={["student"]}
+            >
+              <Complaint />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/my-complaints"
+          element={
+            <ProtectedRoute
+              allowedRoles={["student"]}
+            >
+              <MyComplaints />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* ================= ADMIN ROUTES ================= */}
+
+        <Route
+          path="/admin-complaints"
+          element={
+            <ProtectedRoute
+              allowedRoles={["admin"]}
+            >
+              <AdminComplaints />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute
+              allowedRoles={["admin"]}
+            >
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* ================= STAFF ROUTES ================= */}
+
+        <Route
+          path="/staff-complaints"
+          element={
+            <ProtectedRoute
+              allowedRoles={["staff"]}
+            >
+              <StaffComplaints />
+            </ProtectedRoute>
+          }
+        />
+
       </Routes>
     </BrowserRouter>
   );

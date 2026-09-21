@@ -1,39 +1,223 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from backend.database import connection
 from passlib.context import CryptContext
 
-app = FastAPI()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import base64
+import hashlib
+import hmac
+import json
+import time
 
+
+# ---------------------------------------------------------
+# APP
+# ---------------------------------------------------------
+
+app = FastAPI()
+
+
+# ---------------------------------------------------------
+# PASSWORD HASHING
+# ---------------------------------------------------------
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+
+# ---------------------------------------------------------
+# AUTHENTICATION CONFIGURATION
+# ---------------------------------------------------------
+
+SECRET_KEY = "complaint-system-demo-secret-key-2026"
+
+security = HTTPBearer()
+
+
+# ---------------------------------------------------------
+# CREATE AUTH TOKEN
+# ---------------------------------------------------------
+
+def create_auth_token(user_id, role):
+    payload = {
+        "user_id": user_id,
+        "role": role,
+        "exp": int(time.time()) + (60 * 60 * 24)
+    }
+
+    payload_json = json.dumps(
+        payload,
+        separators=(",", ":")
+    ).encode()
+
+    payload_encoded = base64.urlsafe_b64encode(
+        payload_json
+    ).decode().rstrip("=")
+
+    signature = hmac.new(
+        SECRET_KEY.encode(),
+        payload_encoded.encode(),
+        hashlib.sha256
+    ).digest()
+
+    signature_encoded = base64.urlsafe_b64encode(
+        signature
+    ).decode().rstrip("=")
+
+    return f"{payload_encoded}.{signature_encoded}"
+
+
+# ---------------------------------------------------------
+# VERIFY AUTH TOKEN
+# ---------------------------------------------------------
+
+def verify_auth_token(token):
+    try:
+        parts = token.split(".")
+
+        if len(parts) != 2:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication token"
+            )
+
+        payload_encoded = parts[0]
+        signature_encoded = parts[1]
+
+        expected_signature = hmac.new(
+            SECRET_KEY.encode(),
+            payload_encoded.encode(),
+            hashlib.sha256
+        ).digest()
+
+        expected_signature_encoded = base64.urlsafe_b64encode(
+            expected_signature
+        ).decode().rstrip("=")
+
+        if not hmac.compare_digest(
+            signature_encoded,
+            expected_signature_encoded
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication token"
+            )
+
+        padding = "=" * (-len(payload_encoded) % 4)
+
+        payload_json = base64.urlsafe_b64decode(
+            payload_encoded + padding
+        )
+
+        payload = json.loads(
+            payload_json.decode()
+        )
+
+        if payload["exp"] < int(time.time()):
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication token expired"
+            )
+
+        return payload
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token"
+        )
+
+
+# ---------------------------------------------------------
+# AUTHENTICATION DEPENDENCY
+# ---------------------------------------------------------
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+
+    return verify_auth_token(token)
+
+
+# ---------------------------------------------------------
+# ROLE AUTHORIZATION
+# ---------------------------------------------------------
+
+def require_role(*allowed_roles):
+
+    def role_checker(
+        current_user: dict = Depends(get_current_user)
+    ):
+
+        if current_user["role"] not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to access this resource"
+            )
+
+        return current_user
+
+    return role_checker
+
+
+# ---------------------------------------------------------
+# CORS
+# ---------------------------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+# ---------------------------------------------------------
+# PYDANTIC MODELS
+# ---------------------------------------------------------
+
 class UserRegistration(BaseModel):
     name: str
     email: str
     password: str
+
+
 class UserLogin(BaseModel):
     email: str
     password: str
+
+
 class ComplaintCreate(BaseModel):
     user_id: int
     title: str
     description: str
     category: str
     priority: str = "medium"
+
+
 class ComplaintStatusUpdate(BaseModel):
     status: str
+
+
 class ComplaintAssignment(BaseModel):
     staff_id: int
+
+
+# ---------------------------------------------------------
+# ROOT
+# ---------------------------------------------------------
 
 @app.get("/")
 def root():
@@ -42,13 +226,24 @@ def root():
     }
 
 
+# ---------------------------------------------------------
+# HEALTH CHECK
+# ---------------------------------------------------------
+
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy"
+    }
 
+
+# ---------------------------------------------------------
+# REGISTER
+# ---------------------------------------------------------
 
 @app.post("/register")
 def register_user(user: UserRegistration):
+
     try:
         cursor = connection.cursor()
 
@@ -58,7 +253,11 @@ def register_user(user: UserRegistration):
             VALUES (%s, %s, %s)
             RETURNING id, name, email, role
             """,
-            (user.name, user.email, pwd_context.hash(user.password))
+            (
+                user.name,
+                user.email,
+                pwd_context.hash(user.password)
+            )
         )
 
         new_user = cursor.fetchone()
@@ -77,12 +276,21 @@ def register_user(user: UserRegistration):
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# LOGIN
+# ---------------------------------------------------------
+
 @app.post("/login")
 def login_user(user: UserLogin):
+
     try:
         cursor = connection.cursor()
 
@@ -96,20 +304,34 @@ def login_user(user: UserLogin):
         )
 
         existing_user = cursor.fetchone()
+
         cursor.close()
 
         if not existing_user:
+
             return {
                 "error": "Invalid email or password"
             }
 
-        if not pwd_context.verify(user.password, existing_user[3]):
+        if not pwd_context.verify(
+            user.password,
+            existing_user[3]
+        ):
+
             return {
                 "error": "Invalid email or password"
             }
+
+        token = create_auth_token(
+            existing_user[0],
+            existing_user[4]
+        )
 
         return {
             "message": "Login successful",
+
+            "token": token,
+
             "user": {
                 "id": existing_user[0],
                 "name": existing_user[1],
@@ -119,21 +341,46 @@ def login_user(user: UserLogin):
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# CREATE COMPLAINT
+# ---------------------------------------------------------
+
 @app.post("/complaints")
-def create_complaint(complaint: ComplaintCreate):
+def create_complaint(
+    complaint: ComplaintCreate
+):
+
     try:
         cursor = connection.cursor()
 
         cursor.execute(
             """
             INSERT INTO complaints
-            (user_id, title, description, category, priority)
+            (
+                user_id,
+                title,
+                description,
+                category,
+                priority
+            )
             VALUES (%s, %s, %s, %s, %s)
-            RETURNING id, user_id, title, description, category, status, priority
+
+            RETURNING
+                id,
+                user_id,
+                title,
+                description,
+                category,
+                status,
+                priority
             """,
             (
                 complaint.user_id,
@@ -151,6 +398,7 @@ def create_complaint(complaint: ComplaintCreate):
 
         return {
             "message": "Complaint created successfully",
+
             "complaint": {
                 "id": new_complaint[0],
                 "user_id": new_complaint[1],
@@ -163,18 +411,34 @@ def create_complaint(complaint: ComplaintCreate):
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# GET USER COMPLAINTS
+# ---------------------------------------------------------
+
 @app.get("/complaints/user/{user_id}")
 def get_user_complaints(user_id: int):
+
     try:
         cursor = connection.cursor()
 
         cursor.execute(
             """
-            SELECT id, title, description, category, status, priority, created_at
+            SELECT
+                id,
+                title,
+                description,
+                category,
+                status,
+                priority,
+                created_at
             FROM complaints
             WHERE user_id = %s
             ORDER BY created_at DESC
@@ -183,6 +447,7 @@ def get_user_complaints(user_id: int):
         )
 
         complaints = cursor.fetchall()
+
         cursor.close()
 
         return {
@@ -196,17 +461,27 @@ def get_user_complaints(user_id: int):
                     "priority": complaint[5],
                     "created_at": complaint[6]
                 }
+
                 for complaint in complaints
             ]
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# GET ALL COMPLAINTS
+# ---------------------------------------------------------
+
 @app.get("/complaints")
 def get_all_complaints():
+
     try:
         cursor = connection.cursor()
 
@@ -223,13 +498,18 @@ def get_all_complaints():
                 complaints.status,
                 complaints.priority,
                 complaints.created_at
+
             FROM complaints
-            JOIN users ON complaints.user_id = users.id
+
+            JOIN users
+                ON complaints.user_id = users.id
+
             ORDER BY complaints.created_at DESC
             """
         )
 
         complaints = cursor.fetchall()
+
         cursor.close()
 
         return {
@@ -246,38 +526,63 @@ def get_all_complaints():
                     "priority": complaint[8],
                     "created_at": complaint[9]
                 }
+
                 for complaint in complaints
             ]
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# UPDATE COMPLAINT STATUS
+# ---------------------------------------------------------
+
 @app.put("/complaints/{complaint_id}/status")
 def update_complaint_status(
     complaint_id: int,
-    status_update: ComplaintStatusUpdate
+    status_data: ComplaintStatusUpdate,
+    current_user: dict = Depends(
+        require_role("staff", "admin")
+    )
 ):
+
     try:
         cursor = connection.cursor()
 
         cursor.execute(
             """
             UPDATE complaints
-            SET status = %s,
+
+            SET
+                status = %s,
                 updated_at = CURRENT_TIMESTAMP
+
             WHERE id = %s
-            RETURNING id, status, updated_at
+
+            RETURNING
+                id,
+                status,
+                updated_at
             """,
-            (status_update.status, complaint_id)
+            (
+                status_data.status,
+                complaint_id
+            )
         )
 
         updated_complaint = cursor.fetchone()
 
         if not updated_complaint:
+
             cursor.close()
+
             return {
                 "error": "Complaint not found"
             }
@@ -287,6 +592,7 @@ def update_complaint_status(
 
         return {
             "message": "Complaint status updated successfully",
+
             "complaint": {
                 "id": updated_complaint[0],
                 "status": updated_complaint[1],
@@ -295,24 +601,37 @@ def update_complaint_status(
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# ASSIGN COMPLAINT TO STAFF
+# ---------------------------------------------------------
+
 @app.post("/complaints/{complaint_id}/assign")
 def assign_complaint(
     complaint_id: int,
-    assignment: ComplaintAssignment
+    assignment: ComplaintAssignment,
+    current_user: dict = Depends(
+        require_role("admin")
+    )
 ):
+
     try:
         cursor = connection.cursor()
 
-        # Check that the staff user exists and has staff role
+        # Check staff user
         cursor.execute(
             """
             SELECT id
             FROM users
-            WHERE id = %s AND role = 'staff'
+            WHERE id = %s
+            AND role = 'staff'
             """,
             (assignment.staff_id,)
         )
@@ -320,12 +639,14 @@ def assign_complaint(
         staff = cursor.fetchone()
 
         if not staff:
+
             cursor.close()
+
             return {
                 "error": "Staff user not found"
             }
 
-        # Check that the complaint exists
+        # Check complaint
         cursor.execute(
             """
             SELECT id
@@ -338,7 +659,9 @@ def assign_complaint(
         complaint = cursor.fetchone()
 
         if not complaint:
+
             cursor.close()
+
             return {
                 "error": "Complaint not found"
             }
@@ -347,11 +670,23 @@ def assign_complaint(
         cursor.execute(
             """
             INSERT INTO complaint_assignments
-            (complaint_id, staff_id)
+            (
+                complaint_id,
+                staff_id
+            )
+
             VALUES (%s, %s)
-            RETURNING id, complaint_id, staff_id, assigned_at
+
+            RETURNING
+                id,
+                complaint_id,
+                staff_id,
+                assigned_at
             """,
-            (complaint_id, assignment.staff_id)
+            (
+                complaint_id,
+                assignment.staff_id
+            )
         )
 
         new_assignment = cursor.fetchone()
@@ -361,6 +696,7 @@ def assign_complaint(
 
         return {
             "message": "Complaint assigned successfully",
+
             "assignment": {
                 "id": new_assignment[0],
                 "complaint_id": new_assignment[1],
@@ -370,12 +706,26 @@ def assign_complaint(
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# GET STAFF COMPLAINTS
+# ---------------------------------------------------------
+
 @app.get("/staff/{staff_id}/complaints")
-def get_staff_complaints(staff_id: int):
+def get_staff_complaints(
+    staff_id: int,
+    current_user: dict = Depends(
+        require_role("staff", "admin")
+    )
+):
+
     try:
         cursor = connection.cursor()
 
@@ -392,18 +742,24 @@ def get_staff_complaints(staff_id: int):
                 complaints.status,
                 complaints.priority,
                 complaints.created_at
+
             FROM complaint_assignments
+
             JOIN complaints
                 ON complaint_assignments.complaint_id = complaints.id
+
             JOIN users
                 ON complaints.user_id = users.id
+
             WHERE complaint_assignments.staff_id = %s
+
             ORDER BY complaints.created_at DESC
             """,
             (staff_id,)
         )
 
         complaints = cursor.fetchall()
+
         cursor.close()
 
         return {
@@ -420,30 +776,48 @@ def get_staff_complaints(staff_id: int):
                     "priority": complaint[8],
                     "created_at": complaint[9]
                 }
+
                 for complaint in complaints
             ]
         }
 
     except Exception as error:
+
         connection.rollback()
+
         return {
             "error": str(error)
         }
-        # ---------------------------------------------------------
+
+
+# ---------------------------------------------------------
 # GET ALL STAFF MEMBERS
 # ---------------------------------------------------------
 
 @app.get("/staff")
-def get_staff():
+def get_staff(
+    current_user: dict = Depends(
+        require_role("admin")
+    )
+):
+
     try:
         cursor = connection.cursor()
 
-        cursor.execute("""
-            SELECT id, name, email
+        cursor.execute(
+            """
+            SELECT
+                id,
+                name,
+                email
+
             FROM users
+
             WHERE role = 'staff'
+
             ORDER BY name
-        """)
+            """
+        )
 
         staff = cursor.fetchall()
 
@@ -455,98 +829,125 @@ def get_staff():
                 "name": row[1],
                 "email": row[2]
             }
+
             for row in staff
         ]
 
     except Exception as error:
+
         return {
             "error": str(error)
         }
-        # ---------------------------------------------------------
+
+
+# ---------------------------------------------------------
 # AI COMPLAINT CLASSIFICATION
 # ---------------------------------------------------------
 
 @app.post("/ai/classify")
 def classify_complaint(data: dict):
+
     try:
         title = data.get("title", "")
         description = data.get("description", "")
 
         text = f"{title} {description}".lower()
 
-        # Default values
         category = "Other"
         priority = "medium"
 
         # Category detection
-        if any(word in text for word in [
-            "hostel",
-            "room",
-            "water supply",
-            "mess",
-            "food",
-            "bathroom",
-            "warden"
-        ]):
+
+        if any(
+            word in text
+            for word in [
+                "hostel",
+                "room",
+                "water supply",
+                "mess",
+                "food",
+                "bathroom",
+                "warden"
+            ]
+        ):
             category = "Hostel"
 
-        elif any(word in text for word in [
-            "library",
-            "book",
-            "books",
-            "reading room"
-        ]):
+        elif any(
+            word in text
+            for word in [
+                "library",
+                "book",
+                "books",
+                "reading room"
+            ]
+        ):
             category = "Library"
 
-        elif any(word in text for word in [
-            "classroom",
-            "building",
-            "fan",
-            "light",
-            "electricity",
-            "infrastructure",
-            "bench",
-            "lift"
-        ]):
+        elif any(
+            word in text
+            for word in [
+                "classroom",
+                "building",
+                "fan",
+                "light",
+                "electricity",
+                "infrastructure",
+                "bench",
+                "lift"
+            ]
+        ):
             category = "Infrastructure"
 
-        elif any(word in text for word in [
-            "bus",
-            "transport",
-            "vehicle",
-            "driver"
-        ]):
+        elif any(
+            word in text
+            for word in [
+                "bus",
+                "transport",
+                "vehicle",
+                "driver"
+            ]
+        ):
             category = "Transport"
 
-        elif any(word in text for word in [
-            "exam",
-            "marks",
-            "teacher",
-            "faculty",
-            "course",
-            "attendance",
-            "assignment"
-        ]):
+        elif any(
+            word in text
+            for word in [
+                "exam",
+                "marks",
+                "teacher",
+                "faculty",
+                "course",
+                "attendance",
+                "assignment"
+            ]
+        ):
             category = "Academic"
 
         # Priority detection
-        if any(word in text for word in [
-            "urgent",
-            "emergency",
-            "danger",
-            "immediately",
-            "critical",
-            "not working",
-            "no water",
-            "fire"
-        ]):
+
+        if any(
+            word in text
+            for word in [
+                "urgent",
+                "emergency",
+                "danger",
+                "immediately",
+                "critical",
+                "not working",
+                "no water",
+                "fire"
+            ]
+        ):
             priority = "high"
 
-        elif any(word in text for word in [
-            "minor",
-            "small",
-            "suggestion"
-        ]):
+        elif any(
+            word in text
+            for word in [
+                "minor",
+                "small",
+                "suggestion"
+            ]
+        ):
             priority = "low"
 
         return {
@@ -555,33 +956,45 @@ def classify_complaint(data: dict):
         }
 
     except Exception as error:
+
         return {
             "error": str(error)
         }
-        # ---------------------------------------------------------
+
+
+# ---------------------------------------------------------
 # SUBMIT COMPLAINT FEEDBACK
 # ---------------------------------------------------------
 
 @app.post("/complaints/{complaint_id}/feedback")
-def submit_feedback(complaint_id: int, data: dict):
+def submit_feedback(
+    complaint_id: int,
+    data: dict,
+    current_user: dict = Depends(
+        require_role("student")
+    )
+):
+
     try:
         user_id = data.get("user_id")
         rating = data.get("rating")
         comment = data.get("comment", "")
 
         if not user_id or not rating:
+
             return {
                 "error": "User ID and rating are required"
             }
 
         if rating < 1 or rating > 5:
+
             return {
                 "error": "Rating must be between 1 and 5"
             }
 
         cursor = connection.cursor()
 
-        # Check complaint exists
+        # Check complaint
         cursor.execute(
             """
             SELECT id
@@ -594,6 +1007,7 @@ def submit_feedback(complaint_id: int, data: dict):
         complaint = cursor.fetchone()
 
         if not complaint:
+
             cursor.close()
 
             return {
@@ -610,7 +1024,9 @@ def submit_feedback(complaint_id: int, data: dict):
                 rating,
                 comment
             )
+
             VALUES (%s, %s, %s, %s)
+
             RETURNING id
             """,
             (
@@ -632,6 +1048,7 @@ def submit_feedback(complaint_id: int, data: dict):
         }
 
     except Exception as error:
+
         connection.rollback()
 
         return {
