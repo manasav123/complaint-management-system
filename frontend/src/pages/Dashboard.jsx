@@ -26,6 +26,7 @@ function Dashboard() {
         </div>
 
         <div className="nav-links">
+
           <a href="/dashboard" className="nav-link active">
             Dashboard
           </a>
@@ -49,16 +50,24 @@ function Dashboard() {
           )}
 
           {isAdmin && (
-            <a href="/admin-complaints" className="nav-link">
-              Admin Complaints
-            </a>
+            <>
+              <a href="/admin-complaints" className="nav-link">
+                Admin Complaints
+              </a>
+
+              <a href="/analytics" className="nav-link">
+                Analytics
+              </a>
+            </>
           )}
 
           <button className="nav-logout" onClick={logout}>
             Logout
           </button>
+
         </div>
       </nav>
+
 
       <div className="dashboard-container">
 
@@ -82,6 +91,7 @@ function Dashboard() {
           </div>
         </section>
 
+
         {user ? (
           <>
             {/* Welcome Card */}
@@ -92,15 +102,23 @@ function Dashboard() {
               </div>
 
               <div className="profile-info">
-                <p className="welcome-label">WELCOME BACK</p>
 
-                <h2>{user.name}</h2>
+                <p className="welcome-label">
+                  WELCOME BACK
+                </p>
 
-                <p>{user.email}</p>
+                <h2>
+                  {user.name}
+                </h2>
+
+                <p>
+                  {user.email}
+                </p>
 
                 <p className="profile-role">
                   🎓 Role: {user.role}
                 </p>
+
               </div>
 
               <div className="welcome-message">
@@ -111,17 +129,22 @@ function Dashboard() {
 
             </div>
 
+
             {/* Quick Actions */}
             <div className="dashboard-section">
 
-              <h2>Quick Actions</h2>
+              <h2>
+                Quick Actions
+              </h2>
 
               <p className="section-subtitle">
                 Choose an option to get started
               </p>
 
+
               <div className="dashboard-cards">
 
+                {/* Student */}
                 {user.role === "student" && (
                   <>
                     <a
@@ -132,7 +155,9 @@ function Dashboard() {
                         📝
                       </div>
 
-                      <h3>Submit Complaint</h3>
+                      <h3>
+                        Submit Complaint
+                      </h3>
 
                       <p>
                         Report a new issue or problem
@@ -144,6 +169,7 @@ function Dashboard() {
                       </span>
                     </a>
 
+
                     <a
                       href="/my-complaints"
                       className="dashboard-card complaints-card"
@@ -152,7 +178,9 @@ function Dashboard() {
                         📋
                       </div>
 
-                      <h3>My Complaints</h3>
+                      <h3>
+                        My Complaints
+                      </h3>
 
                       <p>
                         Track your submitted complaints
@@ -166,6 +194,8 @@ function Dashboard() {
                   </>
                 )}
 
+
+                {/* Staff */}
                 {isStaff && (
                   <a
                     href="/staff-complaints"
@@ -175,7 +205,9 @@ function Dashboard() {
                       🛠️
                     </div>
 
-                    <h3>Staff Complaints</h3>
+                    <h3>
+                      Staff Complaints
+                    </h3>
 
                     <p>
                       View assigned complaints and
@@ -188,50 +220,95 @@ function Dashboard() {
                   </a>
                 )}
 
+
+                {/* Admin */}
                 {isAdmin && (
-                  <a
-                    href="/admin-complaints"
-                    className="dashboard-card"
-                  >
-                    <div className="card-icon">
-                      ⚙️
-                    </div>
+                  <>
+                    <a
+                      href="/admin-complaints"
+                      className="dashboard-card"
+                    >
+                      <div className="card-icon">
+                        ⚙️
+                      </div>
 
-                    <h3>Admin Complaints</h3>
+                      <h3>
+                        Admin Complaints
+                      </h3>
 
-                    <p>
-                      Manage complaints and assign
-                      them to staff.
-                    </p>
+                      <p>
+                        Manage complaints and assign
+                        them to staff.
+                      </p>
 
-                    <span className="card-button">
-                      Manage Complaints →
-                    </span>
-                  </a>
+                      <span className="card-button">
+                        Manage Complaints →
+                      </span>
+                    </a>
+
+
+                    <a
+                      href="/analytics"
+                      className="dashboard-card"
+                    >
+                      <div className="card-icon">
+                        📊
+                      </div>
+
+                      <h3>
+                        Analytics
+                      </h3>
+
+                      <p>
+                        View complaint statistics
+                        and resolution progress.
+                      </p>
+
+                      <span className="card-button">
+                        View Analytics →
+                      </span>
+                    </a>
+                  </>
                 )}
 
               </div>
             </div>
+
           </>
         ) : (
-          <div className="welcome-card">
-            <h2>No user is logged in.</h2>
 
-            <a href="/login" className="primary-button">
+          /* No User */
+          <div className="welcome-card">
+
+            <h2>
+              No user is logged in.
+            </h2>
+
+            <a
+              href="/login"
+              className="primary-button"
+            >
               Go to Login
             </a>
+
           </div>
+
         )}
 
       </div>
 
+
       {/* Footer */}
       <footer className="main-footer">
-        <strong>AI-Powered Complaint System</strong>
+
+        <strong>
+          AI-Powered Complaint System
+        </strong>
 
         <span>
           Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️
         </span>
+
       </footer>
 
     </div>

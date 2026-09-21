@@ -6,38 +6,89 @@ import Complaint from "./pages/Complaint";
 import MyComplaints from "./pages/MyComplaints";
 import AdminComplaints from "./pages/AdminComplaints";
 import StaffComplaints from "./pages/StaffComplaints";
-
+import Analytics from "./pages/Analytics";
 function Home() {
   return (
-    <div>
-      <h1>AI-Powered Complaint Management System</h1>
+    <div className="home-page">
+      <nav className="main-nav">
+        <div className="brand">
+          <div className="brand-icon">🏫</div>
+          <div>
+            <h2>AI-Powered Complaint System</h2>
+            <p>Your Voice, A Better Campus</p>
+          </div>
+        </div>
 
-      <p>
-        Submit, track, and manage college complaints easily.
-      </p>
+        <div className="nav-links">
+          <a href="/" className="nav-link active">Home</a>
+          <a href="/login" className="nav-link">Login</a>
+          <a href="/register" className="nav-link">Register</a>
+        </div>
+      </nav>
 
-      <Link to="/login">
-        <button>Login</button>
-      </Link>
+      <main className="home-container">
+        <section className="home-hero">
+          <div className="home-content">
+            <p className="hero-label">WELCOME TO</p>
 
-      <Link to="/register">
-        <button>Register</button>
-      </Link>
-<Link to="/dashboard">
-  <button>Dashboard</button>
-</Link>
+            <h1>
+              AI-Powered <span>Complaint Management</span>
+            </h1>
 
-<Link to="/complaint">
-  <button>Submit Complaint</button>
-</Link>
+            <p className="home-description">
+              A smart and simple platform for students to report issues,
+              track complaints, and help build a better campus.
+            </p>
 
-<Link to="/my-complaints">
-  <button>My Complaints</button>
-</Link>
+            <div className="home-buttons">
+              <a href="/login" className="home-primary-button">
+                Login to Continue →
+              </a>
 
-<Link to="/admin-complaints">
-  <button>Admin Complaints</button>
-</Link>
+              <a href="/register" className="home-secondary-button">
+                Create Account
+              </a>
+            </div>
+          </div>
+
+          <div className="home-illustration">
+            <div className="home-icon">🏫</div>
+            <div className="floating-icon icon-one">📝</div>
+            <div className="floating-icon icon-two">📋</div>
+            <div className="floating-icon icon-three">✨</div>
+          </div>
+        </section>
+
+        <section className="home-features">
+          <h2>How It Works</h2>
+          <p>Simple, transparent, and easy to use</p>
+
+          <div className="feature-grid">
+            <div className="feature-card">
+              <div className="feature-icon">📝</div>
+              <h3>Submit</h3>
+              <p>Report your college issue quickly and easily.</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">🔍</div>
+              <h3>Track</h3>
+              <p>Check the progress of your complaint anytime.</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">✅</div>
+              <h3>Resolve</h3>
+              <p>Staff can manage and resolve reported issues.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="main-footer">
+        <strong>AI-Powered Complaint System</strong>
+        <span>Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️</span>
+      </footer>
     </div>
   );
 }
@@ -54,6 +105,7 @@ function App() {
         <Route path="/my-complaints" element={<MyComplaints />} />
         <Route path="/admin-complaints" element={<AdminComplaints />} />
         <Route path="/staff-complaints" element={<StaffComplaints />} />
+        <Route path="/analytics" element={<Analytics />} />
       </Routes>
     </BrowserRouter>
   );

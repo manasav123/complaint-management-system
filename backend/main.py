@@ -429,3 +429,36 @@ def get_staff_complaints(staff_id: int):
         return {
             "error": str(error)
         }
+        # ---------------------------------------------------------
+# GET ALL STAFF MEMBERS
+# ---------------------------------------------------------
+
+@app.get("/staff")
+def get_staff():
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT id, name, email
+            FROM users
+            WHERE role = 'staff'
+            ORDER BY name
+        """)
+
+        staff = cursor.fetchall()
+
+        cursor.close()
+
+        return [
+            {
+                "id": row[0],
+                "name": row[1],
+                "email": row[2]
+            }
+            for row in staff
+        ]
+
+    except Exception as error:
+        return {
+            "error": str(error)
+        }
