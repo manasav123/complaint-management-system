@@ -462,3 +462,178 @@ def get_staff():
         return {
             "error": str(error)
         }
+        # ---------------------------------------------------------
+# AI COMPLAINT CLASSIFICATION
+# ---------------------------------------------------------
+
+@app.post("/ai/classify")
+def classify_complaint(data: dict):
+    try:
+        title = data.get("title", "")
+        description = data.get("description", "")
+
+        text = f"{title} {description}".lower()
+
+        # Default values
+        category = "Other"
+        priority = "medium"
+
+        # Category detection
+        if any(word in text for word in [
+            "hostel",
+            "room",
+            "water supply",
+            "mess",
+            "food",
+            "bathroom",
+            "warden"
+        ]):
+            category = "Hostel"
+
+        elif any(word in text for word in [
+            "library",
+            "book",
+            "books",
+            "reading room"
+        ]):
+            category = "Library"
+
+        elif any(word in text for word in [
+            "classroom",
+            "building",
+            "fan",
+            "light",
+            "electricity",
+            "infrastructure",
+            "bench",
+            "lift"
+        ]):
+            category = "Infrastructure"
+
+        elif any(word in text for word in [
+            "bus",
+            "transport",
+            "vehicle",
+            "driver"
+        ]):
+            category = "Transport"
+
+        elif any(word in text for word in [
+            "exam",
+            "marks",
+            "teacher",
+            "faculty",
+            "course",
+            "attendance",
+            "assignment"
+        ]):
+            category = "Academic"
+
+        # Priority detection
+        if any(word in text for word in [
+            "urgent",
+            "emergency",
+            "danger",
+            "immediately",
+            "critical",
+            "not working",
+            "no water",
+            "fire"
+        ]):
+            priority = "high"
+
+        elif any(word in text for word in [
+            "minor",
+            "small",
+            "suggestion"
+        ]):
+            priority = "low"
+
+        return {
+            "category": category,
+            "priority": priority
+        }
+
+    except Exception as error:
+        return {
+            "error": str(error)
+        }
+        # ---------------------------------------------------------
+# SUBMIT COMPLAINT FEEDBACK
+# ---------------------------------------------------------
+
+@app.post("/complaints/{complaint_id}/feedback")
+def submit_feedback(complaint_id: int, data: dict):
+    try:
+        user_id = data.get("user_id")
+        rating = data.get("rating")
+        comment = data.get("comment", "")
+
+        if not user_id or not rating:
+            return {
+                "error": "User ID and rating are required"
+            }
+
+        if rating < 1 or rating > 5:
+            return {
+                "error": "Rating must be between 1 and 5"
+            }
+
+        cursor = connection.cursor()
+
+        # Check complaint exists
+        cursor.execute(
+            """
+            SELECT id
+            FROM complaints
+            WHERE id = %s
+            """,
+            (complaint_id,)
+        )
+
+        complaint = cursor.fetchone()
+
+        if not complaint:
+            cursor.close()
+
+            return {
+                "error": "Complaint not found"
+            }
+
+        # Insert feedback
+        cursor.execute(
+            """
+            INSERT INTO complaint_feedback
+            (
+                complaint_id,
+                user_id,
+                rating,
+                comment
+            )
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                complaint_id,
+                user_id,
+                rating,
+                comment
+            )
+        )
+
+        feedback_id = cursor.fetchone()[0]
+
+        connection.commit()
+        cursor.close()
+
+        return {
+            "message": "Feedback submitted successfully",
+            "feedback_id": feedback_id
+        }
+
+    except Exception as error:
+        connection.rollback()
+
+        return {
+            "error": str(error)
+        }
