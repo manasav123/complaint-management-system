@@ -1,11 +1,21 @@
+import os
+
 import psycopg2
+from dotenv import load_dotenv
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE = os.path.join(BASE_DIR, ".env")
+
+load_dotenv(ENV_FILE)
+
 
 connection = psycopg2.connect(
-    host="localhost",
-    port="5432",
-    database="complaint_management",
-    user="postgres",
-    password="postgres@11139"
+    host=os.getenv("DB_HOST"),
+    port=os.getenv("DB_PORT"),
+    database=os.getenv("DB_NAME"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
 )
 
 print("Database connected successfully!")

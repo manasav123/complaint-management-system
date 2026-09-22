@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -33,7 +34,10 @@ pwd_context = CryptContext(
 # AUTHENTICATION CONFIGURATION
 # ---------------------------------------------------------
 
-SECRET_KEY = "complaint-system-demo-secret-key-2026"
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "complaint-system-demo-secret-key-2026"
+)
 
 security = HTTPBearer()
 
