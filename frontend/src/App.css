@@ -1861,3 +1861,258 @@ select {
   font-size: 14px;
   line-height: 1.5;
 }
+/* =========================================================
+   COMPLAINT FORM - AI BUTTON & SELECTS
+   ========================================================= */
+
+.ai-button {
+  width: 100%;
+  padding: 14px 18px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+}
+
+.ai-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.form-select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background-color: white;
+  color: #111827;
+  font-size: 15px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.form-select:hover {
+  border-color: #9ca3af;
+}
+/* =========================================================
+   ADMIN COMPLAINTS - ASSIGNMENT CONTROLS
+   ========================================================= */
+
+.admin-complaint-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-complaint-controls select {
+  min-width: 170px;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-complaint-controls select:hover {
+  border-color: #9ca3af;
+}
+
+.admin-complaint-controls select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin-complaint-controls button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-complaint-controls button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.admin-complaint-controls button:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 700px) {
+  .admin-complaint-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-complaint-controls select,
+  .admin-complaint-controls button {
+    width: 100%;
+  }
+}
+/* =========================================================
+   ADMIN COMPLAINT CARD CONTROLS
+   ========================================================= */
+/* =========================================================
+   ADMIN COMPLAINT CONTROLS
+   ========================================================= */
+
+.complaint-card select {
+  height: 46px;
+  min-width: 165px;
+  padding: 0 42px 0 15px;
+
+  border: 1px solid #d8dee9;
+  border-radius: 12px;
+
+  background-color: #ffffff;
+  color: #1e293b;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  outline: none;
+  cursor: pointer;
+
+  appearance: auto;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.complaint-card select:hover {
+  border-color: #2563eb;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.08);
+}
+
+.complaint-card select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+/* Select Staff specifically */
+
+.complaint-card select:nth-of-type(2) {
+  min-width: 190px;
+  background-color: #f8fafc;
+}
+
+.complaint-card select:nth-of-type(2):hover {
+  background-color: #ffffff;
+  border-color: #4f46e5;
+}
+
+.complaint-card select:nth-of-type(2):focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+/* Assignment button */
+
+.complaint-card button {
+  height: 46px;
+  padding: 0 20px;
+
+  border: none;
+  border-radius: 12px;
+
+  background: linear-gradient(
+    135deg,
+    #2563eb,
+    #4f46e5
+  );
+
+  color: #ffffff;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.complaint-card button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+}
+
+.complaint-card button:active {
+  transform: translateY(0);
+}
+/* =========================================================
+   ADMIN - STAFF SELECT
+   ========================================================= */
+
+.admin-actions .staff-select {
+  width: 210px !important;
+  height: 48px !important;
+
+  padding: 0 16px !important;
+
+  border: 2px solid #dbe3f0 !important;
+  border-radius: 12px !important;
+
+  background: #f8fafc !important;
+  color: #1e293b !important;
+
+  font-size: 15px !important;
+  font-weight: 600 !important;
+
+  outline: none !important;
+  cursor: pointer !important;
+
+  transition: all 0.2s ease !important;
+}
+
+.admin-actions .staff-select:hover {
+  background: #ffffff !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12) !important;
+}
+
+.admin-actions .staff-select:focus {
+  background: #ffffff !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12) !important;
+}
+
+/* Make the three controls sit nicely together */
+
+.admin-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
