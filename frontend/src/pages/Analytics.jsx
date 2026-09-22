@@ -67,6 +67,35 @@ function Analytics() {
 
   const categoryEntries = Object.entries(categoryCounts);
 
+  // Find most common category
+  let topCategory = "No category";
+
+  if (categoryEntries.length > 0) {
+    topCategory = categoryEntries.reduce(
+      (highest, current) =>
+        current[1] > highest[1] ? current : highest
+    )[0];
+  }
+
+  // =========================================================
+  // AI ANALYSIS
+  // =========================================================
+
+  const resolvedPercentage =
+    total > 0
+      ? Math.round((resolved / total) * 100)
+      : 0;
+
+  const highPriorityPercentage =
+    total > 0
+      ? Math.round((highPriority / total) * 100)
+      : 0;
+
+  const pendingPercentage =
+    total > 0
+      ? Math.round((pending / total) * 100)
+      : 0;
+
   // =========================================================
   // LOADING
   // =========================================================
@@ -77,6 +106,7 @@ function Analytics() {
         <div className="analytics-container">
 
           <div className="analytics-header">
+
             <p className="hero-label">
               ADMIN ANALYTICS
             </p>
@@ -84,6 +114,7 @@ function Analytics() {
             <h1>
               Loading Analytics...
             </h1>
+
           </div>
 
         </div>
@@ -107,6 +138,7 @@ function Analytics() {
           </div>
 
           <div>
+
             <h2>
               AI-Powered Complaint System
             </h2>
@@ -114,6 +146,7 @@ function Analytics() {
             <p>
               Your Voice, A Better Campus
             </p>
+
           </div>
 
         </div>
@@ -151,7 +184,9 @@ function Analytics() {
 
       <div className="analytics-container">
 
-        {/* HEADER */}
+        {/* ===================================================
+            HEADER
+        =================================================== */}
 
         <div className="analytics-header">
 
@@ -258,6 +293,143 @@ function Analytics() {
         </div>
 
         {/* ===================================================
+            AI ANALYSIS
+        =================================================== */}
+
+        <div className="analytics-ai-card">
+
+          <div className="ai-analysis-header">
+
+            <div className="ai-analysis-icon">
+              🧠
+            </div>
+
+            <div>
+
+              <p className="ai-analysis-label">
+                INTELLIGENT DATA ANALYSIS
+              </p>
+
+              <h2>
+                AI Complaint Insights
+              </h2>
+
+            </div>
+
+          </div>
+
+          <p className="ai-analysis-description">
+            Automated analysis of complaint data to identify
+            important trends and priority areas.
+          </p>
+
+          <div className="ai-insights-grid">
+
+            <div className="ai-insight">
+
+              <div className="ai-insight-icon">
+                📌
+              </div>
+
+              <div>
+
+                <h3>
+                  Most Reported Category
+                </h3>
+
+                <strong>
+                  {topCategory}
+                </strong>
+
+                <p>
+                  This category currently has the highest
+                  number of complaints.
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="ai-insight">
+
+              <div className="ai-insight-icon">
+                🚨
+              </div>
+
+              <div>
+
+                <h3>
+                  High Priority Complaints
+                </h3>
+
+                <strong>
+                  {highPriorityPercentage}%
+                </strong>
+
+                <p>
+                  {highPriority} out of {total} complaints
+                  are marked as high priority.
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="ai-insight">
+
+              <div className="ai-insight-icon">
+                ✅
+              </div>
+
+              <div>
+
+                <h3>
+                  Resolution Rate
+                </h3>
+
+                <strong>
+                  {resolvedPercentage}%
+                </strong>
+
+                <p>
+                  {resolved} out of {total} complaints
+                  have been resolved.
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="ai-insight">
+
+              <div className="ai-insight-icon">
+                ⏳
+              </div>
+
+              <div>
+
+                <h3>
+                  Pending Complaints
+                </h3>
+
+                <strong>
+                  {pendingPercentage}%
+                </strong>
+
+                <p>
+                  {pending} complaints are currently
+                  waiting for action.
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* ===================================================
             STATUS SUMMARY
         =================================================== */}
 
@@ -306,10 +478,7 @@ function Analytics() {
                   </td>
 
                   <td>
-                    {total > 0
-                      ? Math.round((pending / total) * 100)
-                      : 0}
-                    %
+                    {pendingPercentage}%
                   </td>
 
                 </tr>
@@ -328,7 +497,9 @@ function Analytics() {
 
                   <td>
                     {total > 0
-                      ? Math.round((inProgress / total) * 100)
+                      ? Math.round(
+                          (inProgress / total) * 100
+                        )
                       : 0}
                     %
                   </td>
@@ -348,10 +519,7 @@ function Analytics() {
                   </td>
 
                   <td>
-                    {total > 0
-                      ? Math.round((resolved / total) * 100)
-                      : 0}
-                    %
+                    {resolvedPercentage}%
                   </td>
 
                 </tr>
