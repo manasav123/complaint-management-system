@@ -2116,3 +2116,18 @@ select {
   gap: 10px !important;
   flex-wrap: wrap !important;
 }
+/* =========================================================
+   GLOBAL RESPONSIVE OVERFLOW FIX
+   ========================================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
