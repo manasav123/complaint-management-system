@@ -6,6 +6,7 @@ function AdminComplaints() {
   const [filteredComplaints, setFilteredComplaints] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState({});
+  const [complaintImages, setComplaintImages] = useState({});
   const [message, setMessage] = useState("");
 
   const [search, setSearch] = useState("");
@@ -13,10 +14,7 @@ function AdminComplaints() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
-  // ---------------------------------------------------------
   // LOAD COMPLAINTS
-  // ---------------------------------------------------------
-
   const loadComplaints = () => {
     api
       .get("/complaints")
@@ -26,7 +24,6 @@ function AdminComplaints() {
           : response.data.complaints || [];
 
         setComplaints(data);
-        setFilteredComplaints(data);
       })
       .catch((error) => {
         console.error("Error loading complaints:", error);
@@ -34,10 +31,7 @@ function AdminComplaints() {
       });
   };
 
-  // ---------------------------------------------------------
   // LOAD STAFF MEMBERS
-  // ---------------------------------------------------------
-
   const loadStaff = () => {
     api
       .get("/staff")
@@ -54,19 +48,61 @@ function AdminComplaints() {
       });
   };
 
-  // ---------------------------------------------------------
   // INITIAL LOAD
-  // ---------------------------------------------------------
-
   useEffect(() => {
     loadComplaints();
     loadStaff();
   }, []);
 
-  // ---------------------------------------------------------
-  // SEARCH + FILTER
-  // ---------------------------------------------------------
+  // LOAD COMPLAINT IMAGES
+  useEffect(() => {
+    let active = true;
+    const objectUrls = [];
 
+    const loadImages = async () => {
+      const complaintsWithImages = complaints.filter(
+        (complaint) => complaint.image_file_id
+      );
+
+      const results = await Promise.all(
+        complaintsWithImages.map(async (complaint) => {
+          try {
+            const response = await api.get(
+              `/complaints/${complaint.id}/image`,
+              { responseType: "blob" }
+            );
+
+            const imageUrl = URL.createObjectURL(response.data);
+            objectUrls.push(imageUrl);
+
+            return [complaint.id, imageUrl];
+          } catch (error) {
+            console.error(
+              `Unable to load image for complaint ${complaint.id}:`,
+              error
+            );
+
+            return [complaint.id, null];
+          }
+        })
+      );
+
+      if (active) {
+        setComplaintImages(Object.fromEntries(results));
+      } else {
+        objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      active = false;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [complaints]);
+
+  // SEARCH AND FILTER
   useEffect(() => {
     let result = [...complaints];
 
@@ -107,10 +143,7 @@ function AdminComplaints() {
     complaints,
   ]);
 
-  // ---------------------------------------------------------
   // UPDATE STATUS
-  // ---------------------------------------------------------
-
   const updateStatus = (complaintId, status) => {
     api
       .put(`/complaints/${complaintId}/status`, {
@@ -126,10 +159,7 @@ function AdminComplaints() {
       });
   };
 
-  // ---------------------------------------------------------
   // SELECT STAFF
-  // ---------------------------------------------------------
-
   const handleStaffChange = (complaintId, staffId) => {
     setSelectedStaff((previous) => ({
       ...previous,
@@ -137,10 +167,7 @@ function AdminComplaints() {
     }));
   };
 
-  // ---------------------------------------------------------
   // ASSIGN COMPLAINT
-  // ---------------------------------------------------------
-
   const assignComplaint = (complaintId) => {
     const staffId = selectedStaff[complaintId];
 
@@ -174,10 +201,7 @@ function AdminComplaints() {
       });
   };
 
-  // ---------------------------------------------------------
   // CLEAR FILTERS
-  // ---------------------------------------------------------
-
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
@@ -185,10 +209,7 @@ function AdminComplaints() {
     setPriorityFilter("all");
   };
 
-  // ---------------------------------------------------------
   // GET CATEGORIES
-  // ---------------------------------------------------------
-
   const categories = [
     ...new Set(
       complaints
@@ -200,67 +221,42 @@ function AdminComplaints() {
   return (
     <div className="admin-page">
 
-      {/* ---------------------------------------------------
-          NAVBAR
-      --------------------------------------------------- */}
-
+      {/* NAVBAR */}
       <nav className="main-nav">
-
         <div className="nav-brand">
           <span className="nav-logo">🎓</span>
           <span>Complaint Management System</span>
         </div>
 
         <div className="nav-links">
-
-          <a href="/dashboard">
-            Dashboard
-          </a>
+          <a href="/dashboard">Dashboard</a>
 
           <a href="/admin-complaints" className="active">
             Admin Complaints
           </a>
 
-          <a href="/analytics">
-            Analytics
-          </a>
-
+          <a href="/analytics">Analytics</a>
         </div>
-
       </nav>
 
-      {/* ---------------------------------------------------
-          MAIN CONTENT
-      --------------------------------------------------- */}
-
+      {/* MAIN CONTENT */}
       <div className="admin-container">
 
         <div className="admin-header">
-
           <div>
-            <p className="page-eyebrow">
-              ADMIN PANEL
-            </p>
+            <p className="page-eyebrow">ADMIN PANEL</p>
 
-            <h1>
-              Complaint Management
-            </h1>
+            <h1>Complaint Management</h1>
 
             <p>
               Review, filter, assign and manage student complaints.
             </p>
           </div>
 
-          <div className="admin-header-icon">
-            🛠️
-          </div>
-
+          <div className="admin-header-icon">🛠️</div>
         </div>
 
-        {/* -------------------------------------------------
-            FILTER CARD
-        ------------------------------------------------- */}
-
+        {/* FILTER CARD */}
         <div className="filter-card">
 
           <div className="filter-title">
@@ -271,31 +267,20 @@ function AdminComplaints() {
           <div className="filter-grid">
 
             {/* SEARCH */}
-
             <div className="filter-group search-group">
-
-              <label>
-                Search
-              </label>
+              <label>Search</label>
 
               <input
                 type="text"
                 placeholder="Search complaints..."
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
               />
-
             </div>
 
             {/* STATUS */}
-
             <div className="filter-group">
-
-              <label>
-                Status
-              </label>
+              <label>Status</label>
 
               <select
                 value={statusFilter}
@@ -303,34 +288,16 @@ function AdminComplaints() {
                   setStatusFilter(event.target.value)
                 }
               >
-
-                <option value="all">
-                  All Statuses
-                </option>
-
-                <option value="pending">
-                  Pending
-                </option>
-
-                <option value="in_progress">
-                  In Progress
-                </option>
-
-                <option value="resolved">
-                  Resolved
-                </option>
-
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
               </select>
-
             </div>
 
             {/* CATEGORY */}
-
             <div className="filter-group">
-
-              <label>
-                Category
-              </label>
+              <label>Category</label>
 
               <select
                 value={categoryFilter}
@@ -338,31 +305,19 @@ function AdminComplaints() {
                   setCategoryFilter(event.target.value)
                 }
               >
-
-                <option value="all">
-                  All Categories
-                </option>
+                <option value="all">All Categories</option>
 
                 {categories.map((category) => (
-                  <option
-                    key={category}
-                    value={category}
-                  >
+                  <option key={category} value={category}>
                     {category}
                   </option>
                 ))}
-
               </select>
-
             </div>
 
             {/* PRIORITY */}
-
             <div className="filter-group">
-
-              <label>
-                Priority
-              </label>
+              <label>Priority</label>
 
               <select
                 value={priorityFilter}
@@ -370,40 +325,21 @@ function AdminComplaints() {
                   setPriorityFilter(event.target.value)
                 }
               >
-
-                <option value="all">
-                  All Priorities
-                </option>
-
-                <option value="high">
-                  High
-                </option>
-
-                <option value="medium">
-                  Medium
-                </option>
-
-                <option value="low">
-                  Low
-                </option>
-
+                <option value="all">All Priorities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
-
             </div>
 
           </div>
 
           <div className="filter-bottom">
-
             <div className="filter-result">
               Showing{" "}
-              <strong>
-                {filteredComplaints.length}
-              </strong>{" "}
+              <strong>{filteredComplaints.length}</strong>{" "}
               of{" "}
-              <strong>
-                {complaints.length}
-              </strong>{" "}
+              <strong>{complaints.length}</strong>{" "}
               complaints
             </div>
 
@@ -413,43 +349,28 @@ function AdminComplaints() {
             >
               Clear Filters
             </button>
-
           </div>
 
         </div>
 
-        {/* -------------------------------------------------
-            MESSAGE
-        ------------------------------------------------- */}
-
+        {/* MESSAGE */}
         {message && (
           <div className="admin-message">
             {message}
           </div>
         )}
 
-        {/* -------------------------------------------------
-            COMPLAINT LIST
-        ------------------------------------------------- */}
-
+        {/* COMPLAINT LIST */}
         <div className="admin-list">
 
           {filteredComplaints.length === 0 ? (
 
             <div className="admin-empty">
+              <div className="admin-empty-icon">📭</div>
 
-              <div className="admin-empty-icon">
-                📭
-              </div>
+              <h2>No complaints found</h2>
 
-              <h2>
-                No complaints found
-              </h2>
-
-              <p>
-                Try changing your search or filters.
-              </p>
-
+              <p>Try changing your search or filters.</p>
             </div>
 
           ) : (
@@ -462,7 +383,6 @@ function AdminComplaints() {
               >
 
                 {/* CARD HEADER */}
-
                 <div className="admin-card-header">
 
                   <span className="complaint-number">
@@ -486,49 +406,56 @@ function AdminComplaints() {
                 </div>
 
                 {/* STUDENT */}
-
                 <div className="admin-user-info">
-
                   👤 Student #{complaint.user_id}
-
                 </div>
 
                 {/* TITLE */}
-
-                <h2>
-                  {complaint.title}
-                </h2>
+                <h2>{complaint.title}</h2>
 
                 {/* DESCRIPTION */}
-
                 <p className="complaint-description">
                   {complaint.description}
                 </p>
 
-                {/* DETAILS */}
+                {/* ATTACHED IMAGE */}
+                {complaint.image_file_id && (
+                  <div className="complaint-image-section">
 
+                    <h4>📷 Attached Complaint Image</h4>
+
+                    {complaintImages[complaint.id] ? (
+
+                      <img
+                        src={complaintImages[complaint.id]}
+                        alt={`Complaint ${complaint.id}`}
+                        className="complaint-attached-image"
+                      />
+
+                    ) : (
+
+                      <p>Loading image or image unavailable...</p>
+
+                    )}
+
+                  </div>
+                )}
+
+                {/* DETAILS */}
                 <div className="complaint-details">
 
-                  <span>
-                    📁 {complaint.category}
-                  </span>
+                  <span>📁 {complaint.category}</span>
 
-                  <span>
-                    ⚡ {complaint.priority}
-                  </span>
+                  <span>⚡ {complaint.priority}</span>
 
-                  <span>
-                    🆔 #{complaint.id}
-                  </span>
+                  <span>🆔 #{complaint.id}</span>
 
                 </div>
 
                 {/* ACTIONS */}
-
                 <div className="admin-actions">
 
                   {/* STATUS */}
-
                   <select
                     className="status-select"
                     value={complaint.status}
@@ -539,28 +466,15 @@ function AdminComplaints() {
                       )
                     }
                   >
-
-                    <option value="pending">
-                      Pending
-                    </option>
-
-                    <option value="in_progress">
-                      In Progress
-                    </option>
-
-                    <option value="resolved">
-                      Resolved
-                    </option>
-
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
                   </select>
 
                   {/* STAFF SELECTION */}
-
                   <select
                     className="staff-select"
-                    value={
-                      selectedStaff[complaint.id] || ""
-                    }
+                    value={selectedStaff[complaint.id] || ""}
                     onChange={(event) =>
                       handleStaffChange(
                         complaint.id,
@@ -568,26 +482,19 @@ function AdminComplaints() {
                       )
                     }
                   >
-
-                    <option value="">
-                      Select Staff
-                    </option>
+                    <option value="">Select Staff</option>
 
                     {staffMembers.map((staff) => (
-
                       <option
                         key={staff.id}
                         value={staff.id}
                       >
                         {staff.name}
                       </option>
-
                     ))}
-
                   </select>
 
                   {/* ASSIGN */}
-
                   <button
                     className="assign-button"
                     onClick={() =>
@@ -609,31 +516,15 @@ function AdminComplaints() {
 
       </div>
 
-      {/* ---------------------------------------------------
-          BACK TO DASHBOARD
-      --------------------------------------------------- */}
-
-      <a
-        href="/dashboard"
-        className="back-link"
-      >
+      {/* BACK TO DASHBOARD */}
+      <a href="/dashboard" className="back-link">
         ← Back to Dashboard
       </a>
 
-      {/* ---------------------------------------------------
-          FOOTER
-      --------------------------------------------------- */}
-
+      {/* FOOTER */}
       <footer className="main-footer">
-
-        <p>
-          AI Powered Complaint Management System
-        </p>
-
-        <p>
-          Admin Dashboard
-        </p>
-
+        <p>AI Powered Complaint Management System</p>
+        <p>Admin Dashboard</p>
       </footer>
 
     </div>

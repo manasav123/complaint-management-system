@@ -449,6 +449,10 @@ def get_user_complaints(user_id: int):
 # GET ALL COMPLAINTS
 # ---------------------------------------------------------
 
+# ---------------------------------------------------------
+# GET ALL COMPLAINTS
+# ---------------------------------------------------------
+
 @app.get("/complaints")
 def get_all_complaints():
 
@@ -479,7 +483,14 @@ def get_all_complaints():
                 "category": complaint["category"],
                 "status": complaint["status"],
                 "priority": complaint["priority"],
-                "created_at": complaint["created_at"]
+                "created_at": complaint["created_at"],
+
+                # IMAGE INFORMATION
+                "image_file_id": str(complaint["image_file_id"])
+                    if complaint.get("image_file_id") else None,
+
+                "image_filename": complaint.get("image_filename"),
+                "image_content_type": complaint.get("image_content_type")
             })
 
         return {
@@ -645,6 +656,10 @@ def assign_complaint(
 # GET STAFF COMPLAINTS
 # ---------------------------------------------------------
 
+# ---------------------------------------------------------
+# GET STAFF COMPLAINTS
+# ---------------------------------------------------------
+
 @app.get("/staff/{staff_id}/complaints")
 def get_staff_complaints(
     staff_id: int,
@@ -686,7 +701,14 @@ def get_staff_complaints(
                 "category": complaint["category"],
                 "status": complaint["status"],
                 "priority": complaint["priority"],
-                "created_at": complaint["created_at"]
+                "created_at": complaint["created_at"],
+
+                # IMAGE INFORMATION
+                "image_file_id": str(complaint["image_file_id"])
+                    if complaint.get("image_file_id") else None,
+
+                "image_filename": complaint.get("image_filename"),
+                "image_content_type": complaint.get("image_content_type")
             })
 
         result.sort(
@@ -702,7 +724,6 @@ def get_staff_complaints(
         return {
             "error": str(error)
         }
-
 # ---------------------------------------------------------
 # GET ALL STAFF MEMBERS
 # ---------------------------------------------------------

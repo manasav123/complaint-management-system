@@ -4,7 +4,9 @@ import api from "../services/api";
 function StaffComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [message, setMessage] = useState("");
+  const [complaintImages, setComplaintImages] = useState({});
 
+  // UPDATE COMPLAINT STATUS
   const updateStatus = async (complaintId, newStatus) => {
     try {
       const response = await api.put(
@@ -34,6 +36,7 @@ function StaffComplaints() {
     }
   };
 
+  // FETCH ASSIGNED COMPLAINTS
   useEffect(() => {
     const fetchComplaints = async () => {
       const user = JSON.parse(localStorage.getItem("user"));
@@ -53,7 +56,7 @@ function StaffComplaints() {
           return;
         }
 
-        setComplaints(response.data.complaints);
+        setComplaints(response.data.complaints || []);
       } catch (error) {
         setMessage("Failed to load assigned complaints.");
         console.error(error);
@@ -63,6 +66,63 @@ function StaffComplaints() {
     fetchComplaints();
   }, []);
 
+  // FETCH COMPLAINT IMAGES
+  useEffect(() => {
+    let active = true;
+    const objectUrls = [];
+
+    const loadImages = async () => {
+      const complaintsWithImages = complaints.filter(
+        (complaint) => complaint.image_file_id
+      );
+
+      const results = await Promise.all(
+        complaintsWithImages.map(async (complaint) => {
+          try {
+            const response = await api.get(
+              `/complaints/${complaint.id}/image`,
+              {
+                responseType: "blob",
+              }
+            );
+
+            const imageUrl = URL.createObjectURL(response.data);
+
+            objectUrls.push(imageUrl);
+
+            return [complaint.id, imageUrl];
+          } catch (error) {
+            console.error(
+              `Unable to load image for complaint ${complaint.id}:`,
+              error
+            );
+
+            return [complaint.id, null];
+          }
+        })
+      );
+
+      if (active) {
+        setComplaintImages(Object.fromEntries(results));
+      } else {
+        objectUrls.forEach((url) =>
+          URL.revokeObjectURL(url)
+        );
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      active = false;
+
+      objectUrls.forEach((url) =>
+        URL.revokeObjectURL(url)
+      );
+    };
+  }, [complaints]);
+
+  // STATUS BADGE
   const getStatusClass = (status) => {
     if (status === "resolved") {
       return "status-resolved";
@@ -154,6 +214,27 @@ function StaffComplaints() {
                 <p className="complaint-description">
                   {complaint.description}
                 </p>
+
+                {/* ATTACHED COMPLAINT IMAGE */}
+                {complaint.image_file_id && (
+                  <div className="complaint-image-section">
+
+                    <h4>📷 Attached Complaint Image</h4>
+
+                    {complaintImages[complaint.id] ? (
+                      <img
+                        src={complaintImages[complaint.id]}
+                        alt={`Complaint ${complaint.id}`}
+                        className="complaint-attached-image"
+                      />
+                    ) : (
+                      <p>
+                        Loading image or image unavailable...
+                      </p>
+                    )}
+
+                  </div>
+                )}
 
                 <div className="complaint-details">
 

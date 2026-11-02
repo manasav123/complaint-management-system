@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../services/api";
 
 function MyComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const [ratings, setRatings] = useState({});
   const [comments, setComments] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState({});
+  const [submittingFeedback, setSubmittingFeedback] = useState({});
 
   useEffect(() => {
     const fetchComplaints = async () => {
@@ -15,6 +18,7 @@ function MyComplaints() {
 
       if (!user) {
         setMessage("Please login first.");
+        setLoading(false);
         return;
       }
 
@@ -33,34 +37,28 @@ function MyComplaints() {
           : response.data.complaints || [];
 
         setComplaints(data);
+
       } catch (error) {
         setMessage("Failed to load complaints.");
         console.error(error);
+
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchComplaints();
   }, []);
 
-  // ---------------------------------------------------------
-  // STATUS CLASS
-  // ---------------------------------------------------------
-
   const getStatusClass = (status) => {
-    if (status === "resolved") {
-      return "status-resolved";
-    }
-
-    if (status === "in_progress") {
-      return "status-progress";
-    }
-
-    return "status-pending";
+    if (status === "resolved") return "modern-status-resolved";
+    if (status === "in_progress") return "modern-status-progress";
+    return "modern-status-pending";
   };
 
-  // ---------------------------------------------------------
-  // SELECT RATING
-  // ---------------------------------------------------------
+  const formatStatus = (status) => {
+    return status?.replaceAll("_", " ") || "Pending";
+  };
 
   const handleRatingChange = (complaintId, rating) => {
     setRatings((previous) => ({
@@ -69,20 +67,12 @@ function MyComplaints() {
     }));
   };
 
-  // ---------------------------------------------------------
-  // ENTER COMMENT
-  // ---------------------------------------------------------
-
   const handleCommentChange = (complaintId, comment) => {
     setComments((previous) => ({
       ...previous,
       [complaintId]: comment,
     }));
   };
-
-  // ---------------------------------------------------------
-  // SUBMIT FEEDBACK
-  // ---------------------------------------------------------
 
   const submitFeedback = async (complaintId) => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -107,12 +97,17 @@ function MyComplaints() {
     }
 
     try {
+      setSubmittingFeedback((previous) => ({
+        ...previous,
+        [complaintId]: true,
+      }));
+
       const response = await api.post(
         `/complaints/${complaintId}/feedback`,
         {
           user_id: user.id,
           rating: Number(rating),
-          comment: comment,
+          comment,
         }
       );
 
@@ -138,6 +133,7 @@ function MyComplaints() {
         ...previous,
         [complaintId]: "",
       }));
+
     } catch (error) {
       console.error("Feedback submission error:", error);
 
@@ -145,203 +141,277 @@ function MyComplaints() {
         ...previous,
         [complaintId]: "Failed to submit feedback.",
       }));
+
+    } finally {
+      setSubmittingFeedback((previous) => ({
+        ...previous,
+        [complaintId]: false,
+      }));
     }
   };
 
+  const pendingCount = complaints.filter(
+    (item) => item.status === "pending"
+  ).length;
+
+  const progressCount = complaints.filter(
+    (item) => item.status === "in_progress"
+  ).length;
+
+  const resolvedCount = complaints.filter(
+    (item) => item.status === "resolved"
+  ).length;
+
   return (
-    <div className="complaints-page">
+    <div className="modern-my-complaints">
 
-      <div className="complaints-container">
+      {/* NAVIGATION */}
 
-        {/* -------------------------------------------------
-            PAGE HEADER
-        ------------------------------------------------- */}
+      <nav className="complaints-navbar">
 
-        <div className="page-heading">
+        <Link to="/dashboard" className="complaints-brand">
+          <div className="complaints-brand-icon">🏛️</div>
 
-          <p className="dashboard-label">
-            COMPLAINT MANAGEMENT
-          </p>
+          <div>
+            <h2>CampusCare</h2>
+            <p>SMART CAMPUS SOLUTIONS</p>
+          </div>
+        </Link>
 
-          <h1>
+        <div className="complaints-nav-links">
+          <Link to="/dashboard">Dashboard</Link>
+          <Link to="/complaint">Submit Complaint</Link>
+          <Link to="/my-complaints" className="active">
             My Complaints
-          </h1>
-
-          <p>
-            Track your submitted complaints and monitor
-            their progress.
-          </p>
-
+          </Link>
         </div>
 
-        {/* -------------------------------------------------
-            GENERAL MESSAGE
-        ------------------------------------------------- */}
+      </nav>
 
-        {message && (
-          <div className="complaint-message">
-            {message}
+
+      <main className="my-complaints-main">
+
+        {/* PAGE HEADER */}
+
+        <section className="my-complaints-hero">
+
+          <div>
+            <span className="my-complaints-tag">
+              📋 STUDENT WORKSPACE
+            </span>
+
+            <h1>
+              My <span>Complaints</span>
+            </h1>
+
+            <p>
+              Keep track of your submitted complaints
+              and stay updated on their progress.
+            </p>
+          </div>
+
+          <div className="my-complaints-hero-icon">
+            📑
+          </div>
+
+        </section>
+
+
+        {/* STATISTICS */}
+
+        {!loading && (
+          <section className="complaint-statistics">
+
+            <div className="complaint-stat-card">
+              <div className="stat-icon stat-total">📋</div>
+              <div>
+                <span>TOTAL COMPLAINTS</span>
+                <h2>{complaints.length}</h2>
+              </div>
+            </div>
+
+            <div className="complaint-stat-card">
+              <div className="stat-icon stat-pending">⏳</div>
+              <div>
+                <span>PENDING</span>
+                <h2>{pendingCount}</h2>
+              </div>
+            </div>
+
+            <div className="complaint-stat-card">
+              <div className="stat-icon stat-progress">🔄</div>
+              <div>
+                <span>IN PROGRESS</span>
+                <h2>{progressCount}</h2>
+              </div>
+            </div>
+
+            <div className="complaint-stat-card">
+              <div className="stat-icon stat-resolved">✅</div>
+              <div>
+                <span>RESOLVED</span>
+                <h2>{resolvedCount}</h2>
+              </div>
+            </div>
+
+          </section>
+        )}
+
+
+        {/* LOADING */}
+
+        {loading && (
+          <div className="complaints-loading">
+            <div className="complaints-spinner"></div>
+            <p>Loading your complaints...</p>
           </div>
         )}
 
-        {/* -------------------------------------------------
-            EMPTY STATE
-        ------------------------------------------------- */}
 
-        {complaints.length === 0 && !message ? (
+        {/* ERROR MESSAGE */}
 
-          <div className="empty-state">
+        {!loading && message && (
+          <div className="modern-complaint-message">
+            ⚠️ {message}
+          </div>
+        )}
 
-            <div className="empty-icon">
-              📋
-            </div>
 
-            <h2>
-              No complaints yet
-            </h2>
+        {/* EMPTY STATE */}
+
+        {!loading && !message && complaints.length === 0 && (
+
+          <div className="modern-empty-state">
+
+            <div className="modern-empty-icon">📋</div>
+
+            <h2>No complaints yet</h2>
 
             <p>
-              You haven't submitted any complaints yet.
+              You haven't submitted any complaints.
+              Start by reporting an issue on your campus.
             </p>
 
-            <a
-              href="/complaint"
-              className="empty-button"
+            <Link
+              to="/complaint"
+              className="modern-empty-button"
             >
-              Submit a Complaint
-            </a>
+              + Submit a Complaint
+            </Link>
 
           </div>
 
-        ) : (
+        )}
 
-          <div className="complaints-list">
+
+        {/* COMPLAINT LIST */}
+
+        {!loading && complaints.length > 0 && (
+
+          <section className="modern-complaints-list">
+
+            <div className="complaints-list-heading">
+              <div>
+                <h2>Your Submitted Complaints</h2>
+                <p>View details and monitor each complaint.</p>
+              </div>
+
+              <Link
+                to="/complaint"
+                className="new-complaint-button"
+              >
+                + New Complaint
+              </Link>
+            </div>
+
 
             {complaints.map((complaint) => (
 
-              <div
-                className="complaint-card"
+              <article
+                className="modern-complaint-card"
                 key={complaint.id}
               >
 
-                {/* -------------------------------------------------
-                    COMPLAINT HEADER
-                ------------------------------------------------- */}
+                {/* CARD HEADER */}
 
-                <div className="complaint-card-header">
+                <div className="modern-complaint-header">
 
                   <div>
-
-                    <p className="complaint-number">
+                    <span className="modern-complaint-number">
                       COMPLAINT #{complaint.id}
-                    </p>
+                    </span>
 
-                    <h2>
-                      {complaint.title}
-                    </h2>
-
+                    <h3>{complaint.title}</h3>
                   </div>
 
                   <span
-                    className={`status-badge ${getStatusClass(
+                    className={`modern-complaint-status ${getStatusClass(
                       complaint.status
                     )}`}
                   >
-                    {complaint.status.replace("_", " ")}
+                    {formatStatus(complaint.status)}
                   </span>
 
                 </div>
 
-                {/* -------------------------------------------------
-                    DESCRIPTION
-                ------------------------------------------------- */}
 
-                <p className="complaint-description">
+                {/* DESCRIPTION */}
+
+                <p className="modern-complaint-description">
                   {complaint.description}
                 </p>
 
-                {/* -------------------------------------------------
-                    DETAILS
-                ------------------------------------------------- */}
 
-                <div className="complaint-details">
+                {/* DETAILS */}
+
+                <div className="modern-complaint-details">
 
                   <div>
-
-                    <span>
-                      Category
-                    </span>
-
-                    <strong>
-                      {complaint.category}
-                    </strong>
-
+                    <span>📂 CATEGORY</span>
+                    <strong>{complaint.category}</strong>
                   </div>
 
                   <div>
-
-                    <span>
-                      Priority
-                    </span>
-
-                    <strong>
-                      {complaint.priority}
-                    </strong>
-
+                    <span>⚡ PRIORITY</span>
+                    <strong>{complaint.priority}</strong>
                   </div>
 
                   <div>
-
-                    <span>
-                      Status
-                    </span>
-
-                    <strong>
-                      {complaint.status.replace("_", " ")}
-                    </strong>
-
+                    <span>📌 STATUS</span>
+                    <strong>{formatStatus(complaint.status)}</strong>
                   </div>
 
                 </div>
 
-                {/* -------------------------------------------------
-                    FEEDBACK - ONLY FOR RESOLVED COMPLAINTS
-                ------------------------------------------------- */}
+
+                {/* FEEDBACK */}
 
                 {complaint.status === "resolved" && (
 
-                  <div className="feedback-section">
+                  <div className="modern-feedback-section">
 
-                    <div className="feedback-heading">
+                    <div className="modern-feedback-heading">
 
-                      <span className="feedback-icon">
+                      <div className="modern-feedback-icon">
                         ⭐
-                      </span>
+                      </div>
 
                       <div>
-
-                        <h3>
-                          How was your experience?
-                        </h3>
-
+                        <h3>How was your experience?</h3>
                         <p>
                           Your feedback helps us improve
-                          complaint resolution.
+                          our complaint resolution process.
                         </p>
-
                       </div>
 
                     </div>
 
-                    {/* RATING */}
 
-                    <div className="rating-group">
+                    <div className="modern-rating-group">
 
-                      <label>
-                        Rate the resolution
-                      </label>
+                      <label>Rate the resolution</label>
 
-                      <div className="rating-buttons">
+                      <div className="modern-rating-buttons">
 
                         {[1, 2, 3, 4, 5].map((rating) => (
 
@@ -350,14 +420,11 @@ function MyComplaints() {
                             key={rating}
                             className={
                               ratings[complaint.id] === rating
-                                ? "rating-button selected"
-                                : "rating-button"
+                                ? "modern-rating-button selected"
+                                : "modern-rating-button"
                             }
                             onClick={() =>
-                              handleRatingChange(
-                                complaint.id,
-                                rating
-                              )
+                              handleRatingChange(complaint.id, rating)
                             }
                           >
                             {rating} ⭐
@@ -369,18 +436,13 @@ function MyComplaints() {
 
                     </div>
 
-                    {/* COMMENT */}
 
-                    <div className="feedback-comment">
+                    <div className="modern-feedback-comment">
 
-                      <label>
-                        Additional comments
-                      </label>
+                      <label>Additional comments</label>
 
                       <textarea
-                        value={
-                          comments[complaint.id] || ""
-                        }
+                        value={comments[complaint.id] || ""}
                         onChange={(event) =>
                           handleCommentChange(
                             complaint.id,
@@ -392,54 +454,59 @@ function MyComplaints() {
 
                     </div>
 
-                    {/* SUBMIT */}
 
                     <button
                       type="button"
-                      className="feedback-submit-button"
-                      onClick={() =>
-                        submitFeedback(complaint.id)
-                      }
+                      className="modern-feedback-submit"
+                      onClick={() => submitFeedback(complaint.id)}
+                      disabled={submittingFeedback[complaint.id]}
                     >
-                      ⭐ Submit Feedback
+                      {submittingFeedback[complaint.id]
+                        ? "Submitting..."
+                        : "⭐ Submit Feedback"}
                     </button>
 
-                    {/* FEEDBACK MESSAGE */}
 
                     {feedbackMessage[complaint.id] && (
-
-                      <div className="feedback-message">
-
+                      <div className="modern-feedback-message">
                         {feedbackMessage[complaint.id]}
-
                       </div>
-
                     )}
 
                   </div>
 
                 )}
 
-              </div>
+              </article>
 
             ))}
 
-          </div>
+          </section>
 
         )}
 
-        {/* -------------------------------------------------
-            BACK BUTTON
-        ------------------------------------------------- */}
 
-        <a
-          href="/dashboard"
-          className="back-link"
-        >
+        {/* BACK BUTTON */}
+
+        <Link to="/dashboard" className="complaints-back-link">
           ← Back to Dashboard
-        </a>
+        </Link>
 
-      </div>
+      </main>
+
+
+      {/* FOOTER */}
+
+      <footer className="complaints-page-footer">
+
+        <div>
+          <strong>CampusCare</strong>
+          <p>SMART CAMPUS SOLUTIONS</p>
+        </div>
+
+        <span>Report. Resolve. Improve. ❤️</span>
+
+      </footer>
 
     </div>
   );

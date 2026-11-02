@@ -1,312 +1,402 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 function Dashboard() {
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const isAdmin = user && user.role === "admin";
-  const isStaff = user && user.role === "staff";
+  const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "staff";
+  const isStudent = user?.role === "student";
 
   const logout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
     window.location.href = "/login";
   };
 
   return (
-    <div className="dashboard-page">
+    <div className="modern-dashboard">
 
-      {/* Navigation */}
-      <nav className="main-nav">
-        <div className="brand">
-          <div className="brand-icon">🏫</div>
+      {/* NAVIGATION */}
+
+      <nav className="dashboard-navbar">
+
+        <Link to="/dashboard" className="dashboard-brand">
+          <div className="dashboard-brand-icon">🏛️</div>
 
           <div>
-            <h2>AI-Powered Complaint System</h2>
-            <p>Your Voice, A Better Campus</p>
+            <h2>CampusCare</h2>
+            <p>SMART CAMPUS SOLUTIONS</p>
           </div>
-        </div>
+        </Link>
 
-        <div className="nav-links">
+        <div className="dashboard-nav-links">
 
-          <a href="/dashboard" className="nav-link active">
+          <Link to="/dashboard" className="dashboard-nav-link active">
             Dashboard
-          </a>
+          </Link>
 
-          {user && user.role === "student" && (
+          {isStudent && (
             <>
-              <a href="/complaint" className="nav-link">
+              <Link to="/complaint" className="dashboard-nav-link">
                 Submit Complaint
-              </a>
+              </Link>
 
-              <a href="/my-complaints" className="nav-link">
+              <Link to="/my-complaints" className="dashboard-nav-link">
                 My Complaints
-              </a>
+              </Link>
             </>
           )}
 
           {isStaff && (
-            <a href="/staff-complaints" className="nav-link">
+            <Link to="/staff-complaints" className="dashboard-nav-link">
               Staff Complaints
-            </a>
+            </Link>
           )}
 
           {isAdmin && (
             <>
-              <a href="/admin-complaints" className="nav-link">
+              <Link to="/admin-complaints" className="dashboard-nav-link">
                 Admin Complaints
-              </a>
+              </Link>
 
-              <a href="/analytics" className="nav-link">
+              <Link to="/analytics" className="dashboard-nav-link">
                 Analytics
-              </a>
+              </Link>
             </>
           )}
 
-          <button className="nav-logout" onClick={logout}>
-            Logout
+          <button
+            className="dashboard-logout"
+            onClick={logout}
+          >
+            Logout ↗
           </button>
 
         </div>
+
       </nav>
 
 
-      <div className="dashboard-container">
-
-        {/* Hero */}
-        <section className="hero-section">
-          <div>
-            <p className="hero-label">WELCOME TO</p>
-
-            <h1>
-              Your Voice <span>Matters</span>
-            </h1>
-
-            <p>
-              Report issues, track progress, and help us build
-              a better campus together.
-            </p>
-          </div>
-
-          <div className="hero-emoji">
-            🏫
-          </div>
-        </section>
-
+      <main className="dashboard-main">
 
         {user ? (
           <>
-            {/* Welcome Card */}
-            <div className="welcome-card">
 
-              <div className="profile-icon">
-                👤
-              </div>
+            {/* WELCOME HERO */}
 
-              <div className="profile-info">
+            <section className="dashboard-hero">
 
-                <p className="welcome-label">
-                  WELCOME BACK
-                </p>
+              <div className="dashboard-hero-content">
 
-                <h2>
-                  {user.name}
-                </h2>
+                <span className="dashboard-hero-badge">
+                  ✨ YOUR CAMPUS, YOUR VOICE
+                </span>
+
+                <h1>
+                  Welcome to a
+                  <br />
+                  <span>Better Campus.</span>
+                </h1>
 
                 <p>
-                  {user.email}
+                  Report issues, track complaint progress
+                  and help us build a smarter campus together.
                 </p>
 
-                <p className="profile-role">
-                  🎓 Role: {user.role}
-                </p>
+                {isStudent && (
+                  <Link
+                    to="/complaint"
+                    className="dashboard-hero-button"
+                  >
+                    Submit a Complaint →
+                  </Link>
+                )}
+
+                {isStaff && (
+                  <Link
+                    to="/staff-complaints"
+                    className="dashboard-hero-button"
+                  >
+                    View Assigned Complaints →
+                  </Link>
+                )}
+
+                {isAdmin && (
+                  <Link
+                    to="/admin-complaints"
+                    className="dashboard-hero-button"
+                  >
+                    Manage Complaints →
+                  </Link>
+                )}
 
               </div>
 
-              <div className="welcome-message">
-                <p>
-                  “Good ideas start with open conversations.”
-                </p>
+              <div className="dashboard-hero-illustration">
+                <div className="dashboard-illustration-circle">
+                  🏫
+                </div>
+
+                <div className="dashboard-floating-card">
+                  <span>✨</span>
+                  <div>
+                    <strong>CampusCare</strong>
+                    <small>Making every voice count</small>
+                  </div>
+                </div>
+
               </div>
 
-            </div>
+            </section>
 
 
-            {/* Quick Actions */}
-            <div className="dashboard-section">
+            {/* USER PROFILE */}
 
-              <h2>
-                Quick Actions
-              </h2>
+            <section className="dashboard-profile-card">
 
-              <p className="section-subtitle">
-                Choose an option to get started
-              </p>
+              <div className="dashboard-profile-left">
+
+                <div className="dashboard-avatar">
+                  {user.name?.charAt(0).toUpperCase() || "U"}
+                </div>
+
+                <div>
+                  <span className="dashboard-small-label">
+                    WELCOME BACK
+                  </span>
+
+                  <h2>{user.name}</h2>
+
+                  <p>{user.email}</p>
+                </div>
+
+              </div>
+
+              <div className="dashboard-role-badge">
+                <span>●</span>
+                {user.role?.charAt(0).toUpperCase() +
+                  user.role?.slice(1)}
+              </div>
+
+            </section>
 
 
-              <div className="dashboard-cards">
+            {/* QUICK ACTIONS */}
 
-                {/* Student */}
-                {user.role === "student" && (
+            <section className="dashboard-actions-section">
+
+              <div className="dashboard-section-heading">
+
+                <div>
+                  <span className="dashboard-small-label">
+                    GET STARTED
+                  </span>
+
+                  <h2>Quick Actions</h2>
+
+                  <p>
+                    Choose an option to continue.
+                  </p>
+                </div>
+
+                <span className="dashboard-action-sparkle">
+                  ✨
+                </span>
+
+              </div>
+
+
+              <div className="modern-dashboard-cards">
+
+                {/* STUDENT CARDS */}
+
+                {isStudent && (
                   <>
-                    <a
-                      href="/complaint"
-                      className="dashboard-card student-card"
+
+                    <Link
+                      to="/complaint"
+                      className="modern-dashboard-card"
                     >
-                      <div className="card-icon">
+
+                      <div className="modern-card-icon icon-purple">
                         📝
                       </div>
 
-                      <h3>
-                        Submit Complaint
-                      </h3>
+                      <span className="modern-card-label">
+                        REPORT AN ISSUE
+                      </span>
+
+                      <h3>Submit Complaint</h3>
 
                       <p>
-                        Report a new issue or problem
-                        to the college.
+                        Have an issue on campus?
+                        Submit a complaint and let us know.
                       </p>
 
-                      <span className="card-button">
-                        Submit Now →
-                      </span>
-                    </a>
+                      <div className="modern-card-link">
+                        Submit Now <span>→</span>
+                      </div>
+
+                    </Link>
 
 
-                    <a
-                      href="/my-complaints"
-                      className="dashboard-card complaints-card"
+                    <Link
+                      to="/my-complaints"
+                      className="modern-dashboard-card"
                     >
-                      <div className="card-icon">
+
+                      <div className="modern-card-icon icon-blue">
                         📋
                       </div>
 
-                      <h3>
-                        My Complaints
-                      </h3>
+                      <span className="modern-card-label">
+                        TRACK PROGRESS
+                      </span>
+
+                      <h3>My Complaints</h3>
 
                       <p>
-                        Track your submitted complaints
-                        and their status.
+                        View your submitted complaints
+                        and check their latest status.
                       </p>
 
-                      <span className="card-button">
-                        View Complaints →
-                      </span>
-                    </a>
+                      <div className="modern-card-link">
+                        View Complaints <span>→</span>
+                      </div>
+
+                    </Link>
+
                   </>
                 )}
 
 
-                {/* Staff */}
+                {/* STAFF CARD */}
+
                 {isStaff && (
-                  <a
-                    href="/staff-complaints"
-                    className="dashboard-card"
+                  <Link
+                    to="/staff-complaints"
+                    className="modern-dashboard-card"
                   >
-                    <div className="card-icon">
+
+                    <div className="modern-card-icon icon-orange">
                       🛠️
                     </div>
 
-                    <h3>
-                      Staff Complaints
-                    </h3>
+                    <span className="modern-card-label">
+                      STAFF WORKSPACE
+                    </span>
+
+                    <h3>Assigned Complaints</h3>
 
                     <p>
-                      View assigned complaints and
-                      update their status.
+                      Review assigned complaints and
+                      update their resolution status.
                     </p>
 
-                    <span className="card-button">
-                      View Assigned →
-                    </span>
-                  </a>
+                    <div className="modern-card-link">
+                      View Assigned <span>→</span>
+                    </div>
+
+                  </Link>
                 )}
 
 
-                {/* Admin */}
+                {/* ADMIN CARDS */}
+
                 {isAdmin && (
                   <>
-                    <a
-                      href="/admin-complaints"
-                      className="dashboard-card"
+
+                    <Link
+                      to="/admin-complaints"
+                      className="modern-dashboard-card"
                     >
-                      <div className="card-icon">
+
+                      <div className="modern-card-icon icon-purple">
                         ⚙️
                       </div>
 
-                      <h3>
-                        Admin Complaints
-                      </h3>
+                      <span className="modern-card-label">
+                        ADMIN WORKSPACE
+                      </span>
+
+                      <h3>Manage Complaints</h3>
 
                       <p>
-                        Manage complaints and assign
-                        them to staff.
+                        Review complaints, assign staff
+                        and manage their progress.
                       </p>
 
-                      <span className="card-button">
-                        Manage Complaints →
-                      </span>
-                    </a>
+                      <div className="modern-card-link">
+                        Manage Now <span>→</span>
+                      </div>
+
+                    </Link>
 
 
-                    <a
-                      href="/analytics"
-                      className="dashboard-card"
+                    <Link
+                      to="/analytics"
+                      className="modern-dashboard-card"
                     >
-                      <div className="card-icon">
+
+                      <div className="modern-card-icon icon-green">
                         📊
                       </div>
 
-                      <h3>
-                        Analytics
-                      </h3>
+                      <span className="modern-card-label">
+                        PERFORMANCE OVERVIEW
+                      </span>
+
+                      <h3>Analytics</h3>
 
                       <p>
-                        View complaint statistics
+                        Explore complaint statistics
                         and resolution progress.
                       </p>
 
-                      <span className="card-button">
-                        View Analytics →
-                      </span>
-                    </a>
+                      <div className="modern-card-link">
+                        View Analytics <span>→</span>
+                      </div>
+
+                    </Link>
+
                   </>
                 )}
 
               </div>
-            </div>
+
+            </section>
 
           </>
+
         ) : (
 
-          /* No User */
-          <div className="welcome-card">
+          <section className="dashboard-no-user">
+            <div>🔐</div>
+            <h2>No user is logged in.</h2>
+            <p>Please login to access your dashboard.</p>
 
-            <h2>
-              No user is logged in.
-            </h2>
-
-            <a
-              href="/login"
-              className="primary-button"
-            >
-              Go to Login
-            </a>
-
-          </div>
+            <Link to="/login" className="dashboard-hero-button">
+              Go to Login →
+            </Link>
+          </section>
 
         )}
 
-      </div>
+      </main>
 
 
-      {/* Footer */}
-      <footer className="main-footer">
+      {/* FOOTER */}
 
-        <strong>
-          AI-Powered Complaint System
-        </strong>
+      <footer className="dashboard-footer">
+
+        <div>
+          <strong>CampusCare</strong>
+          <p>SMART CAMPUS SOLUTIONS</p>
+        </div>
 
         <span>
-          Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️
+          Report. Resolve. Improve. ❤️
         </span>
 
       </footer>
