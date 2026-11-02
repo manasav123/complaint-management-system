@@ -17,3 +17,14 @@ frontend/dist/
 # IDE
 .vscode/
 .idea/
+# All environment files
+**/.env
+
+# All Python virtual environments
+**/venv/
+
+# Build folders
+**/dist/
+
+# Local database backups
+backend/main_postgresql_backup.py

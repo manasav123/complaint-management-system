@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../services/api";
 
 function Complaint() {
@@ -7,8 +7,75 @@ function Complaint() {
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("medium");
   const [message, setMessage] = useState("");
+
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
+
+  // IMAGE UPLOAD STATES
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+
+  // Clean up image preview URL
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  // ---------------------------------------------------------
+  // IMAGE SELECTION
+  // ---------------------------------------------------------
+
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setMessage("Please select a JPG, PNG or WebP image.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Image size must be less than 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setMessage("");
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  // ---------------------------------------------------------
+  // REMOVE SELECTED IMAGE
+  // ---------------------------------------------------------
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+
+    const input = document.getElementById("complaint-image");
+
+    if (input) {
+      input.value = "";
+    }
+  };
+
+  // ---------------------------------------------------------
+  // AI CLASSIFICATION
+  // ---------------------------------------------------------
 
   const handleAIClassify = async () => {
     if (!title || !description) {
@@ -46,6 +113,10 @@ function Complaint() {
     }
   };
 
+  // ---------------------------------------------------------
+  // SUBMIT COMPLAINT
+  // ---------------------------------------------------------
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -61,7 +132,12 @@ function Complaint() {
       return;
     }
 
+    setSubmitting(true);
+    setMessage("");
+
     try {
+      // STEP 1: CREATE COMPLAINT
+
       const response = await api.post("/complaints", {
         user_id: user.id,
         title,
@@ -75,16 +151,64 @@ function Complaint() {
         return;
       }
 
-      setMessage("Complaint submitted successfully!");
+      // Get the newly created complaint ID
+
+      const complaintId =
+        response.data.complaint?.id ?? response.data.id;
+
+      if (!complaintId) {
+        setMessage(
+          "Complaint submitted, but its ID could not be retrieved."
+        );
+        return;
+      }
+
+      // STEP 2: UPLOAD IMAGE IF SELECTED
+
+      if (selectedImage) {
+        const formData = new FormData();
+
+        formData.append("image", selectedImage);
+
+        try {
+          await api.post(
+            `/complaints/${complaintId}/image`,
+            formData
+          );
+
+          setMessage(
+            "Complaint and image submitted successfully! 🎉"
+          );
+        } catch (imageError) {
+          console.error(imageError);
+
+          setMessage(
+            "Complaint submitted successfully, but image upload failed. You can try uploading it again."
+          );
+        }
+      } else {
+        setMessage("Complaint submitted successfully! 🎉");
+      }
+
+      // STEP 3: RESET FORM
 
       setTitle("");
       setDescription("");
       setCategory("");
       setPriority("medium");
       setAiMessage("");
+
+      removeImage();
+
     } catch (error) {
-      setMessage("Complaint submission failed.");
       console.error(error);
+
+      setMessage(
+        error.response?.data?.detail ||
+        "Complaint submission failed. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -92,18 +216,26 @@ function Complaint() {
     <div className="form-page">
       <div className="form-container">
 
+        {/* PAGE HEADER */}
+
         <div className="form-header">
+
           <p className="dashboard-label">
             COMPLAINT MANAGEMENT
           </p>
 
-          <h1>Submit a Complaint</h1>
+          <h1>
+            Submit a Complaint
+          </h1>
 
           <p>
             Tell us about the issue and we'll make sure it reaches
             the appropriate team.
           </p>
+
         </div>
+
+        {/* COMPLAINT FORM */}
 
         <form
           className="complaint-form"
@@ -113,6 +245,7 @@ function Complaint() {
           {/* TITLE */}
 
           <div className="form-group">
+
             <label htmlFor="title">
               Complaint Title
             </label>
@@ -126,12 +259,13 @@ function Complaint() {
               }
               placeholder="Example: Classroom fan not working"
             />
-          </div>
 
+          </div>
 
           {/* DESCRIPTION */}
 
           <div className="form-group">
+
             <label htmlFor="description">
               Description
             </label>
@@ -144,8 +278,8 @@ function Complaint() {
               }
               placeholder="Describe the problem in detail..."
             />
-          </div>
 
+          </div>
 
           {/* AI BUTTON */}
 
@@ -153,13 +287,12 @@ function Complaint() {
             type="button"
             className="ai-button"
             onClick={handleAIClassify}
-            disabled={aiLoading}
+            disabled={aiLoading || submitting}
           >
             {aiLoading
               ? "🤖 AI Analyzing..."
               : "🤖 Classify with AI"}
           </button>
-
 
           {/* AI MESSAGE */}
 
@@ -169,12 +302,57 @@ function Complaint() {
             </div>
           )}
 
+          {/* IMAGE UPLOAD */}
+
+          <div className="form-group image-upload-group">
+
+            <label htmlFor="complaint-image">
+              📷 Attach Complaint Image (Optional)
+            </label>
+
+            <input
+              type="file"
+              id="complaint-image"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleImageChange}
+              disabled={submitting}
+            />
+
+            <small>
+              Accepted formats: JPG, PNG and WebP. Maximum size: 5 MB.
+            </small>
+
+            {/* IMAGE PREVIEW */}
+
+            {imagePreview && (
+              <div className="image-preview">
+
+                <img
+                  src={imagePreview}
+                  alt="Complaint preview"
+                />
+
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  disabled={submitting}
+                >
+                  Remove Image ✖
+                </button>
+
+              </div>
+            )}
+
+          </div>
 
           {/* CATEGORY + PRIORITY */}
 
           <div className="form-row">
 
+            {/* CATEGORY */}
+
             <div className="form-group">
+
               <label htmlFor="category">
                 Category
               </label>
@@ -186,6 +364,7 @@ function Complaint() {
                   setCategory(event.target.value)
                 }
               >
+
                 <option value="">
                   Select category
                 </option>
@@ -213,11 +392,15 @@ function Complaint() {
                 <option value="Other">
                   Other
                 </option>
+
               </select>
+
             </div>
 
+            {/* PRIORITY */}
 
             <div className="form-group">
+
               <label htmlFor="priority">
                 Priority
               </label>
@@ -229,6 +412,7 @@ function Complaint() {
                   setPriority(event.target.value)
                 }
               >
+
                 <option value="low">
                   Low
                 </option>
@@ -240,21 +424,24 @@ function Complaint() {
                 <option value="high">
                   High
                 </option>
+
               </select>
+
             </div>
 
           </div>
 
-
-          {/* SUBMIT */}
+          {/* SUBMIT BUTTON */}
 
           <button
             className="submit-button"
             type="submit"
+            disabled={submitting}
           >
-            Submit Complaint
+            {submitting
+              ? "Submitting Complaint..."
+              : "Submit Complaint"}
           </button>
-
 
           {/* SUCCESS / ERROR MESSAGE */}
 
@@ -266,6 +453,7 @@ function Complaint() {
 
         </form>
 
+        {/* BACK TO DASHBOARD */}
 
         <a
           href="/dashboard"

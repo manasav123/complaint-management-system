@@ -5,12 +5,13 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("student");
   const [message, setMessage] = useState("");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !role) {
       setMessage("Please fill in all fields.");
       return;
     }
@@ -20,6 +21,7 @@ function Register() {
         name,
         email,
         password,
+        role,
       });
 
       if (response.data.error) {
@@ -108,6 +110,29 @@ function Register() {
               }
               placeholder="Create a password"
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="role">
+              Account Type
+            </label>
+
+            <select
+              id="role"
+              value={role}
+              onChange={(event) =>
+                setRole(event.target.value)
+              }
+              className="form-select"
+            >
+              <option value="student">
+                Student
+              </option>
+
+              <option value="staff">
+                Staff
+              </option>
+            </select>
           </div>
 
           <button

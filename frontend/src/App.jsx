@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import Chatbot from "./components/Chatbot";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -13,7 +13,9 @@ import ProtectedRoute from "./ProtectedRoute";
 function Home() {
   return (
     <div className="home-page">
+
       <nav className="main-nav">
+
         <div className="brand">
           <div className="brand-icon">🏫</div>
 
@@ -24,24 +26,32 @@ function Home() {
         </div>
 
         <div className="nav-links">
-          <a href="/" className="nav-link active">
+
+          <Link to="/" className="nav-link active">
             Home
-          </a>
+          </Link>
 
-          <a href="/login" className="nav-link">
+          <Link to="/login" className="nav-link">
             Login
-          </a>
+          </Link>
 
-          <a href="/register" className="nav-link">
+          <Link to="/register" className="nav-link">
             Register
-          </a>
+          </Link>
+
         </div>
+
       </nav>
 
       <main className="home-container">
+
         <section className="home-hero">
+
           <div className="home-content">
-            <p className="hero-label">WELCOME TO</p>
+
+            <p className="hero-label">
+              WELCOME TO
+            </p>
 
             <h1>
               AI-Powered <span>Complaint Management</span>
@@ -53,17 +63,27 @@ function Home() {
             </p>
 
             <div className="home-buttons">
-              <a href="/login" className="home-primary-button">
-                Login to Continue →
-              </a>
 
-              <a href="/register" className="home-secondary-button">
+              <Link
+                to="/login"
+                className="home-primary-button"
+              >
+                Login to Continue →
+              </Link>
+
+              <Link
+                to="/register"
+                className="home-secondary-button"
+              >
                 Create Account
-              </a>
+              </Link>
+
             </div>
+
           </div>
 
           <div className="home-illustration">
+
             <div className="home-icon">🏫</div>
 
             <div className="floating-icon icon-one">
@@ -77,10 +97,13 @@ function Home() {
             <div className="floating-icon icon-three">
               ✨
             </div>
+
           </div>
+
         </section>
 
         <section className="home-features">
+
           <h2>How It Works</h2>
 
           <p>
@@ -88,7 +111,9 @@ function Home() {
           </p>
 
           <div className="feature-grid">
+
             <div className="feature-card">
+
               <div className="feature-icon">📝</div>
 
               <h3>Submit</h3>
@@ -96,9 +121,11 @@ function Home() {
               <p>
                 Report your college issue quickly and easily.
               </p>
+
             </div>
 
             <div className="feature-card">
+
               <div className="feature-icon">🔍</div>
 
               <h3>Track</h3>
@@ -106,9 +133,11 @@ function Home() {
               <p>
                 Check the progress of your complaint anytime.
               </p>
+
             </div>
 
             <div className="feature-card">
+
               <div className="feature-icon">✅</div>
 
               <h3>Resolve</h3>
@@ -116,12 +145,17 @@ function Home() {
               <p>
                 Staff can manage and resolve reported issues.
               </p>
+
             </div>
+
           </div>
+
         </section>
+
       </main>
 
       <footer className="main-footer">
+
         <strong>
           AI-Powered Complaint System
         </strong>
@@ -129,17 +163,22 @@ function Home() {
         <span>
           Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️
         </span>
+
       </footer>
+
     </div>
   );
 }
 
 function App() {
+
   return (
+
     <BrowserRouter>
+
       <Routes>
 
-        {/* ================= PUBLIC ROUTES ================= */}
+        {/* PUBLIC ROUTES */}
 
         <Route
           path="/"
@@ -156,8 +195,7 @@ function App() {
           element={<Register />}
         />
 
-
-        {/* ================= LOGGED-IN ROUTES ================= */}
+        {/* DASHBOARD */}
 
         <Route
           path="/dashboard"
@@ -170,15 +208,12 @@ function App() {
           }
         />
 
-
-        {/* ================= STUDENT ROUTES ================= */}
+        {/* STUDENT ROUTES */}
 
         <Route
           path="/complaint"
           element={
-            <ProtectedRoute
-              allowedRoles={["student"]}
-            >
+            <ProtectedRoute allowedRoles={["student"]}>
               <Complaint />
             </ProtectedRoute>
           }
@@ -187,23 +222,18 @@ function App() {
         <Route
           path="/my-complaints"
           element={
-            <ProtectedRoute
-              allowedRoles={["student"]}
-            >
+            <ProtectedRoute allowedRoles={["student"]}>
               <MyComplaints />
             </ProtectedRoute>
           }
         />
 
-
-        {/* ================= ADMIN ROUTES ================= */}
+        {/* ADMIN ROUTES */}
 
         <Route
           path="/admin-complaints"
           element={
-            <ProtectedRoute
-              allowedRoles={["admin"]}
-            >
+            <ProtectedRoute allowedRoles={["admin"]}>
               <AdminComplaints />
             </ProtectedRoute>
           }
@@ -212,30 +242,27 @@ function App() {
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute
-              allowedRoles={["admin"]}
-            >
+            <ProtectedRoute allowedRoles={["admin"]}>
               <Analytics />
             </ProtectedRoute>
           }
         />
 
-
-        {/* ================= STAFF ROUTES ================= */}
+        {/* STAFF ROUTES */}
 
         <Route
           path="/staff-complaints"
           element={
-            <ProtectedRoute
-              allowedRoles={["staff"]}
-            >
+            <ProtectedRoute allowedRoles={["staff"]}>
               <StaffComplaints />
             </ProtectedRoute>
           }
         />
 
       </Routes>
+      <Chatbot />
     </BrowserRouter>
+
   );
 }
 

@@ -1,9 +1,19 @@
+from datetime import datetime
+import io
 import os
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from backend.database import connection
+from backend.database import (
+    database,
+    users_collection,
+    complaints_collection,
+    assignments_collection,
+    feedback_collection,
+    images_bucket
+)
 from passlib.context import CryptContext
 
 import base64
@@ -196,6 +206,7 @@ class UserRegistration(BaseModel):
     name: str
     email: str
     password: str
+    role: str = "student"
 
 
 class UserLogin(BaseModel):
@@ -217,6 +228,11 @@ class ComplaintStatusUpdate(BaseModel):
 
 class ComplaintAssignment(BaseModel):
     staff_id: int
+
+
+class FeedbackCreate(BaseModel):
+    rating: int
+    comment: str = ""
 
 
 # ---------------------------------------------------------
@@ -249,44 +265,53 @@ def health():
 def register_user(user: UserRegistration):
 
     try:
-        cursor = connection.cursor()
+        if user.role not in ["student", "staff"]:
+            return {
+                "error": "Invalid role. Choose student or staff."
+            }
 
-        cursor.execute(
-            """
-            INSERT INTO users (name, email, password)
-            VALUES (%s, %s, %s)
-            RETURNING id, name, email, role
-            """,
-            (
-                user.name,
-                user.email,
-                pwd_context.hash(user.password)
-            )
+        existing_user = users_collection.find_one({
+            "email": user.email
+        })
+
+        if existing_user:
+            return {
+                "error": "Email already registered"
+            }
+
+        latest_user = users_collection.find_one(
+            sort=[("id", -1)]
         )
 
-        new_user = cursor.fetchone()
+        new_user_id = (
+            latest_user["id"] + 1 if latest_user else 1
+        )
 
-        connection.commit()
-        cursor.close()
+        new_user = {
+            "id": new_user_id,
+            "name": user.name,
+            "email": user.email,
+            "password": pwd_context.hash(user.password),
+            "role": user.role,
+            "created_at": datetime.utcnow()
+        }
+
+        users_collection.insert_one(new_user)
 
         return {
             "message": "User registered successfully",
             "user": {
-                "id": new_user[0],
-                "name": new_user[1],
-                "email": new_user[2],
-                "role": new_user[3]
+                "id": new_user_id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role
             }
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
-
 
 # ---------------------------------------------------------
 # LOGIN
@@ -296,58 +321,40 @@ def register_user(user: UserRegistration):
 def login_user(user: UserLogin):
 
     try:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT id, name, email, password, role
-            FROM users
-            WHERE email = %s
-            """,
-            (user.email,)
-        )
-
-        existing_user = cursor.fetchone()
-
-        cursor.close()
+        existing_user = users_collection.find_one({
+            "email": user.email
+        })
 
         if not existing_user:
-
             return {
                 "error": "Invalid email or password"
             }
 
         if not pwd_context.verify(
             user.password,
-            existing_user[3]
+            existing_user["password"]
         ):
-
             return {
                 "error": "Invalid email or password"
             }
 
         token = create_auth_token(
-            existing_user[0],
-            existing_user[4]
+            existing_user["id"],
+            existing_user["role"]
         )
 
         return {
             "message": "Login successful",
-
             "token": token,
-
             "user": {
-                "id": existing_user[0],
-                "name": existing_user[1],
-                "email": existing_user[2],
-                "role": existing_user[4]
+                "id": existing_user["id"],
+                "name": existing_user["name"],
+                "email": existing_user["email"],
+                "role": existing_user["role"]
             }
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
@@ -358,126 +365,85 @@ def login_user(user: UserLogin):
 # ---------------------------------------------------------
 
 @app.post("/complaints")
-def create_complaint(
-    complaint: ComplaintCreate
-):
+def create_complaint(complaint: ComplaintCreate):
 
     try:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            INSERT INTO complaints
-            (
-                user_id,
-                title,
-                description,
-                category,
-                priority
-            )
-            VALUES (%s, %s, %s, %s, %s)
-
-            RETURNING
-                id,
-                user_id,
-                title,
-                description,
-                category,
-                status,
-                priority
-            """,
-            (
-                complaint.user_id,
-                complaint.title,
-                complaint.description,
-                complaint.category,
-                complaint.priority
-            )
+        latest_complaint = complaints_collection.find_one(
+            sort=[("id", -1)]
         )
 
-        new_complaint = cursor.fetchone()
+        new_complaint_id = (
+            latest_complaint["id"] + 1
+            if latest_complaint else 1
+        )
 
-        connection.commit()
-        cursor.close()
+        current_time = datetime.utcnow()
+
+        new_complaint = {
+            "id": new_complaint_id,
+            "user_id": complaint.user_id,
+            "title": complaint.title,
+            "description": complaint.description,
+            "category": complaint.category,
+            "status": "pending",
+            "priority": complaint.priority,
+            "created_at": current_time,
+            "updated_at": current_time
+        }
+
+        complaints_collection.insert_one(new_complaint)
 
         return {
             "message": "Complaint created successfully",
-
             "complaint": {
-                "id": new_complaint[0],
-                "user_id": new_complaint[1],
-                "title": new_complaint[2],
-                "description": new_complaint[3],
-                "category": new_complaint[4],
-                "status": new_complaint[5],
-                "priority": new_complaint[6]
+                "id": new_complaint_id,
+                "user_id": complaint.user_id,
+                "title": complaint.title,
+                "description": complaint.description,
+                "category": complaint.category,
+                "status": "pending",
+                "priority": complaint.priority
             }
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
 
-
 # ---------------------------------------------------------
 # GET USER COMPLAINTS
 # ---------------------------------------------------------
-
 @app.get("/complaints/user/{user_id}")
 def get_user_complaints(user_id: int):
 
     try:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                id,
-                title,
-                description,
-                category,
-                status,
-                priority,
-                created_at
-            FROM complaints
-            WHERE user_id = %s
-            ORDER BY created_at DESC
-            """,
-            (user_id,)
+        complaints = list(
+            complaints_collection.find(
+                {"user_id": user_id},
+                {"_id": 0}
+            ).sort("created_at", -1)
         )
-
-        complaints = cursor.fetchall()
-
-        cursor.close()
 
         return {
             "complaints": [
                 {
-                    "id": complaint[0],
-                    "title": complaint[1],
-                    "description": complaint[2],
-                    "category": complaint[3],
-                    "status": complaint[4],
-                    "priority": complaint[5],
-                    "created_at": complaint[6]
+                    "id": complaint["id"],
+                    "title": complaint["title"],
+                    "description": complaint["description"],
+                    "category": complaint["category"],
+                    "status": complaint["status"],
+                    "priority": complaint["priority"],
+                    "created_at": complaint["created_at"]
                 }
-
                 for complaint in complaints
             ]
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
-
 
 # ---------------------------------------------------------
 # GET ALL COMPLAINTS
@@ -487,62 +453,43 @@ def get_user_complaints(user_id: int):
 def get_all_complaints():
 
     try:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                complaints.id,
-                complaints.user_id,
-                users.name,
-                users.email,
-                complaints.title,
-                complaints.description,
-                complaints.category,
-                complaints.status,
-                complaints.priority,
-                complaints.created_at
-
-            FROM complaints
-
-            JOIN users
-                ON complaints.user_id = users.id
-
-            ORDER BY complaints.created_at DESC
-            """
+        complaints = list(
+            complaints_collection.find(
+                {},
+                {"_id": 0}
+            ).sort("created_at", -1)
         )
 
-        complaints = cursor.fetchall()
+        result = []
 
-        cursor.close()
+        for complaint in complaints:
+
+            user = users_collection.find_one(
+                {"id": complaint["user_id"]},
+                {"_id": 0, "name": 1, "email": 1}
+            )
+
+            result.append({
+                "id": complaint["id"],
+                "user_id": complaint["user_id"],
+                "user_name": user["name"] if user else "Unknown",
+                "user_email": user["email"] if user else "",
+                "title": complaint["title"],
+                "description": complaint["description"],
+                "category": complaint["category"],
+                "status": complaint["status"],
+                "priority": complaint["priority"],
+                "created_at": complaint["created_at"]
+            })
 
         return {
-            "complaints": [
-                {
-                    "id": complaint[0],
-                    "user_id": complaint[1],
-                    "user_name": complaint[2],
-                    "user_email": complaint[3],
-                    "title": complaint[4],
-                    "description": complaint[5],
-                    "category": complaint[6],
-                    "status": complaint[7],
-                    "priority": complaint[8],
-                    "created_at": complaint[9]
-                }
-
-                for complaint in complaints
-            ]
+            "complaints": result
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
-
 
 # ---------------------------------------------------------
 # UPDATE COMPLAINT STATUS
@@ -558,64 +505,51 @@ def update_complaint_status(
 ):
 
     try:
-        cursor = connection.cursor()
+        valid_statuses = [
+            "pending",
+            "in progress",
+            "resolved"
+        ]
 
-        cursor.execute(
-            """
-            UPDATE complaints
+        if status_data.status.lower() not in valid_statuses:
+            return {
+                "error": "Invalid complaint status"
+            }
 
-            SET
-                status = %s,
-                updated_at = CURRENT_TIMESTAMP
+        updated_time = datetime.utcnow()
 
-            WHERE id = %s
-
-            RETURNING
-                id,
-                status,
-                updated_at
-            """,
-            (
-                status_data.status,
-                complaint_id
-            )
+        result = complaints_collection.update_one(
+            {"id": complaint_id},
+            {
+                "$set": {
+                    "status": status_data.status,
+                    "updated_at": updated_time
+                }
+            }
         )
 
-        updated_complaint = cursor.fetchone()
-
-        if not updated_complaint:
-
-            cursor.close()
-
+        if result.matched_count == 0:
             return {
                 "error": "Complaint not found"
             }
 
-        connection.commit()
-        cursor.close()
-
         return {
             "message": "Complaint status updated successfully",
-
             "complaint": {
-                "id": updated_complaint[0],
-                "status": updated_complaint[1],
-                "updated_at": updated_complaint[2]
+                "id": complaint_id,
+                "status": status_data.status,
+                "updated_at": updated_time
             }
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
-
-
 # ---------------------------------------------------------
 # ASSIGN COMPLAINT TO STAFF
 # ---------------------------------------------------------
+
 
 @app.post("/complaints/{complaint_id}/assign")
 def assign_complaint(
@@ -627,97 +561,86 @@ def assign_complaint(
 ):
 
     try:
-        cursor = connection.cursor()
-
-        # Check staff user
-        cursor.execute(
-            """
-            SELECT id
-            FROM users
-            WHERE id = %s
-            AND role = 'staff'
-            """,
-            (assignment.staff_id,)
-        )
-
-        staff = cursor.fetchone()
+        # Check whether staff exists
+        staff = users_collection.find_one({
+            "id": assignment.staff_id,
+            "role": "staff"
+        })
 
         if not staff:
-
-            cursor.close()
-
             return {
                 "error": "Staff user not found"
             }
 
-        # Check complaint
-        cursor.execute(
-            """
-            SELECT id
-            FROM complaints
-            WHERE id = %s
-            """,
-            (complaint_id,)
-        )
-
-        complaint = cursor.fetchone()
+        # Check whether complaint exists
+        complaint = complaints_collection.find_one({
+            "id": complaint_id
+        })
 
         if not complaint:
-
-            cursor.close()
-
             return {
                 "error": "Complaint not found"
             }
 
-        # Create assignment
-        cursor.execute(
-            """
-            INSERT INTO complaint_assignments
-            (
-                complaint_id,
-                staff_id
+        # Prevent duplicate assignments
+        existing_assignment = assignments_collection.find_one({
+            "complaint_id": complaint_id
+        })
+
+        if existing_assignment:
+            assignments_collection.update_one(
+                {"complaint_id": complaint_id},
+                {
+                    "$set": {
+                        "staff_id": assignment.staff_id,
+                        "assigned_at": datetime.utcnow()
+                    }
+                }
             )
 
-            VALUES (%s, %s)
+            return {
+                "message": "Complaint assignment updated successfully",
+                "assignment": {
+                    "complaint_id": complaint_id,
+                    "staff_id": assignment.staff_id
+                }
+            }
 
-            RETURNING
-                id,
-                complaint_id,
-                staff_id,
-                assigned_at
-            """,
-            (
-                complaint_id,
-                assignment.staff_id
-            )
+        # Generate assignment ID
+        latest_assignment = assignments_collection.find_one(
+            sort=[("id", -1)]
         )
 
-        new_assignment = cursor.fetchone()
+        new_assignment_id = (
+            latest_assignment["id"] + 1
+            if latest_assignment else 1
+        )
 
-        connection.commit()
-        cursor.close()
+        assigned_time = datetime.utcnow()
+
+        new_assignment = {
+            "id": new_assignment_id,
+            "complaint_id": complaint_id,
+            "staff_id": assignment.staff_id,
+            "assigned_at": assigned_time
+        }
+
+        assignments_collection.insert_one(new_assignment)
 
         return {
             "message": "Complaint assigned successfully",
-
             "assignment": {
-                "id": new_assignment[0],
-                "complaint_id": new_assignment[1],
-                "staff_id": new_assignment[2],
-                "assigned_at": new_assignment[3]
+                "id": new_assignment_id,
+                "complaint_id": complaint_id,
+                "staff_id": assignment.staff_id,
+                "assigned_at": assigned_time
             }
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
-
-
 # ---------------------------------------------------------
 # GET STAFF COMPLAINTS
 # ---------------------------------------------------------
@@ -731,68 +654,54 @@ def get_staff_complaints(
 ):
 
     try:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                complaints.id,
-                complaints.user_id,
-                users.name,
-                users.email,
-                complaints.title,
-                complaints.description,
-                complaints.category,
-                complaints.status,
-                complaints.priority,
-                complaints.created_at
-
-            FROM complaint_assignments
-
-            JOIN complaints
-                ON complaint_assignments.complaint_id = complaints.id
-
-            JOIN users
-                ON complaints.user_id = users.id
-
-            WHERE complaint_assignments.staff_id = %s
-
-            ORDER BY complaints.created_at DESC
-            """,
-            (staff_id,)
+        # Get complaints assigned to this staff member
+        assignments = list(
+            assignments_collection.find({
+                "staff_id": staff_id
+            })
         )
 
-        complaints = cursor.fetchall()
+        result = []
 
-        cursor.close()
+        for assignment in assignments:
+
+            complaint = complaints_collection.find_one({
+                "id": assignment["complaint_id"]
+            })
+
+            if not complaint:
+                continue
+
+            user = users_collection.find_one({
+                "id": complaint["user_id"]
+            })
+
+            result.append({
+                "id": complaint["id"],
+                "user_id": complaint["user_id"],
+                "user_name": user["name"] if user else "Unknown",
+                "user_email": user["email"] if user else "",
+                "title": complaint["title"],
+                "description": complaint["description"],
+                "category": complaint["category"],
+                "status": complaint["status"],
+                "priority": complaint["priority"],
+                "created_at": complaint["created_at"]
+            })
+
+        result.sort(
+            key=lambda item: item["created_at"],
+            reverse=True
+        )
 
         return {
-            "complaints": [
-                {
-                    "id": complaint[0],
-                    "user_id": complaint[1],
-                    "user_name": complaint[2],
-                    "user_email": complaint[3],
-                    "title": complaint[4],
-                    "description": complaint[5],
-                    "category": complaint[6],
-                    "status": complaint[7],
-                    "priority": complaint[8],
-                    "created_at": complaint[9]
-                }
-
-                for complaint in complaints
-            ]
+            "complaints": result
         }
 
     except Exception as error:
-
-        connection.rollback()
-
         return {
             "error": str(error)
         }
-
 
 # ---------------------------------------------------------
 # GET ALL STAFF MEMBERS
@@ -806,42 +715,143 @@ def get_staff(
 ):
 
     try:
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                id,
-                name,
-                email
-
-            FROM users
-
-            WHERE role = 'staff'
-
-            ORDER BY name
-            """
+        staff = list(
+            users_collection.find(
+                {"role": "staff"},
+                {
+                    "_id": 0,
+                    "id": 1,
+                    "name": 1,
+                    "email": 1
+                }
+            ).sort("name", 1)
         )
 
-        staff = cursor.fetchall()
-
-        cursor.close()
-
-        return [
-            {
-                "id": row[0],
-                "name": row[1],
-                "email": row[2]
-            }
-
-            for row in staff
-        ]
+        return staff
 
     except Exception as error:
-
         return {
             "error": str(error)
         }
+
+
+# ---------------------------------------------------------
+# UPLOAD COMPLAINT IMAGE
+# ---------------------------------------------------------
+
+@app.post("/complaints/{complaint_id}/image")
+async def upload_complaint_image(
+    complaint_id: int,
+    image: UploadFile = File(...),
+    current_user: dict = Depends(require_role("student"))
+):
+    """Upload one image (JPEG, PNG or WebP, max 5 MB) for the logged-in student's complaint."""
+    allowed_types = {"image/jpeg", "image/png", "image/webp"}
+    max_size = 5 * 1024 * 1024
+
+    complaint = complaints_collection.find_one({"id": complaint_id})
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    user_id = current_user["user_id"]
+    if complaint.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can upload an image only to your own complaint"
+        )
+
+    if image.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPEG, PNG and WebP images are allowed"
+        )
+
+    contents = await image.read(max_size + 1)
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded image is empty")
+    if len(contents) > max_size:
+        raise HTTPException(status_code=413, detail="Image must be 5 MB or smaller")
+
+    # Remove any previous image attached to this complaint.
+    previous_image_id = complaint.get("image_file_id")
+    if previous_image_id:
+        try:
+            images_bucket.delete(previous_image_id)
+        except Exception:
+            pass
+
+    filename = os.path.basename(image.filename or "complaint-image")
+    file_id = images_bucket.upload_from_stream(
+        filename,
+        io.BytesIO(contents),
+        metadata={
+            "complaint_id": complaint_id,
+            "user_id": user_id,
+            "content_type": image.content_type
+        }
+    )
+
+    complaints_collection.update_one(
+        {"id": complaint_id},
+        {"$set": {
+            "image_file_id": file_id,
+            "image_filename": filename,
+            "image_content_type": image.content_type,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+
+    return {
+        "message": "Complaint image uploaded successfully",
+        "complaint_id": complaint_id,
+        "filename": filename
+    }
+
+
+# ---------------------------------------------------------
+# VIEW COMPLAINT IMAGE
+# ---------------------------------------------------------
+
+@app.get("/complaints/{complaint_id}/image")
+def get_complaint_image(
+    complaint_id: int,
+    current_user: dict = Depends(get_current_user)
+):
+    complaint = complaints_collection.find_one({"id": complaint_id})
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    # Students may view only their own complaint images. Staff/admin may view
+    # complaint evidence as part of complaint handling.
+    if current_user.get("role") == "student":
+        if complaint.get("user_id") != current_user.get("user_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif current_user.get("role") == "staff":
+        assignment = assignments_collection.find_one({
+            "complaint_id": complaint_id,
+            "staff_id": current_user.get("user_id")
+        })
+        if not assignment:
+            raise HTTPException(status_code=403, detail="This complaint is not assigned to you")
+    elif current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    file_id = complaint.get("image_file_id")
+    if not file_id:
+        raise HTTPException(status_code=404, detail="No image uploaded for this complaint")
+
+    try:
+        grid_out = images_bucket.open_download_stream(file_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Complaint image not found")
+
+    content_type = complaint.get("image_content_type", "application/octet-stream")
+    filename = complaint.get("image_filename", "complaint-image")
+    return StreamingResponse(
+        grid_out,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'}
+    )
 
 
 # ---------------------------------------------------------
@@ -970,91 +980,72 @@ def classify_complaint(data: dict):
 # SUBMIT COMPLAINT FEEDBACK
 # ---------------------------------------------------------
 
+# ==============================
+# SUBMIT COMPLAINT FEEDBACK
+# ==============================
+
 @app.post("/complaints/{complaint_id}/feedback")
 def submit_feedback(
     complaint_id: int,
-    data: dict,
-    current_user: dict = Depends(
-        require_role("student")
-    )
+    feedback: FeedbackCreate,
+    current_user: dict = Depends(require_role("student"))
 ):
-
     try:
-        user_id = data.get("user_id")
-        rating = data.get("rating")
-        comment = data.get("comment", "")
-
-        if not user_id or not rating:
-
-            return {
-                "error": "User ID and rating are required"
-            }
-
-        if rating < 1 or rating > 5:
-
-            return {
-                "error": "Rating must be between 1 and 5"
-            }
-
-        cursor = connection.cursor()
-
-        # Check complaint
-        cursor.execute(
-            """
-            SELECT id
-            FROM complaints
-            WHERE id = %s
-            """,
-            (complaint_id,)
-        )
-
-        complaint = cursor.fetchone()
+        # Check whether complaint exists
+        complaint = complaints_collection.find_one({
+            "id": complaint_id
+        })
 
         if not complaint:
-
-            cursor.close()
-
-            return {
-                "error": "Complaint not found"
-            }
-
-        # Insert feedback
-        cursor.execute(
-            """
-            INSERT INTO complaint_feedback
-            (
-                complaint_id,
-                user_id,
-                rating,
-                comment
+            raise HTTPException(
+                status_code=404,
+                detail="Complaint not found"
             )
 
-            VALUES (%s, %s, %s, %s)
+        # Get logged-in student's ID
+        user_id = current_user["user_id"]
 
-            RETURNING id
-            """,
-            (
-                complaint_id,
-                user_id,
-                rating,
-                comment
+        # Check complaint ownership
+        if complaint["user_id"] != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot submit feedback for another student's complaint"
             )
+
+        # Validate rating
+        if feedback.rating < 1 or feedback.rating > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="Rating must be between 1 and 5"
+            )
+
+        # Generate next feedback ID
+        last_feedback = feedback_collection.find_one(
+            sort=[("id", -1)]
         )
 
-        feedback_id = cursor.fetchone()[0]
+        next_id = last_feedback["id"] + 1 if last_feedback else 1
 
-        connection.commit()
-        cursor.close()
+        # Save feedback in MongoDB
+        feedback_collection.insert_one({
+            "id": next_id,
+            "complaint_id": complaint_id,
+            "user_id": user_id,
+            "rating": feedback.rating,
+            "comment": feedback.comment,
+            "created_at": datetime.utcnow()
+        })
 
         return {
             "message": "Feedback submitted successfully",
-            "feedback_id": feedback_id
+            "feedback_id": next_id
         }
+
+    except HTTPException:
+        raise
 
     except Exception as error:
-
-        connection.rollback()
-
-        return {
-            "error": str(error)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
