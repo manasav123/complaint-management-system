@@ -6,55 +6,64 @@ function Analytics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api
-      .get("/complaints")
+    api.get("/complaints")
       .then((response) => {
-        console.log("Analytics response:", response.data);
-
         const data = response.data;
 
-        if (Array.isArray(data)) {
-          setComplaints(data);
-        } else if (Array.isArray(data.complaints)) {
-          setComplaints(data.complaints);
-        } else {
-          setComplaints([]);
-        }
+        setComplaints(
+          Array.isArray(data)
+            ? data
+            : data.complaints || []
+        );
 
         setLoading(false);
       })
       .catch((error) => {
-        console.error("Error loading analytics:", error);
+        console.error("Analytics error:", error);
         setComplaints([]);
         setLoading(false);
       });
   }, []);
 
-  // =========================================================
-  // BASIC STATISTICS
-  // =========================================================
+  // STATISTICS
 
   const total = complaints.length;
 
   const pending = complaints.filter(
-    (complaint) => complaint.status === "pending"
+    (c) => c.status === "pending"
   ).length;
 
   const inProgress = complaints.filter(
-    (complaint) => complaint.status === "in_progress"
+    (c) => c.status === "in_progress"
   ).length;
 
   const resolved = complaints.filter(
-    (complaint) => complaint.status === "resolved"
+    (c) => c.status === "resolved"
   ).length;
 
   const highPriority = complaints.filter(
-    (complaint) => complaint.priority === "high"
+    (c) => c.priority === "high"
   ).length;
 
-  // =========================================================
+  // PERCENTAGES
+
+  const resolvedPercentage = total
+    ? Math.round((resolved / total) * 100)
+    : 0;
+
+  const pendingPercentage = total
+    ? Math.round((pending / total) * 100)
+    : 0;
+
+  const progressPercentage = total
+    ? Math.round((inProgress / total) * 100)
+    : 0;
+
+  const highPercentage = total
+    ? Math.round((highPriority / total) * 100)
+    : 0;
+
   // CATEGORY ANALYSIS
-  // =========================================================
 
   const categoryCounts = {};
 
@@ -65,660 +74,426 @@ function Analytics() {
       (categoryCounts[category] || 0) + 1;
   });
 
-  const categoryEntries = Object.entries(categoryCounts);
+  const categoryEntries = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1]);
 
-  // Find most common category
-  let topCategory = "No category";
+  const topCategory = categoryEntries.length
+    ? categoryEntries[0][0]
+    : "No category";
 
-  if (categoryEntries.length > 0) {
-    topCategory = categoryEntries.reduce(
-      (highest, current) =>
-        current[1] > highest[1] ? current : highest
-    )[0];
-  }
-
-  // =========================================================
-  // AI ANALYSIS
-  // =========================================================
-
-  const resolvedPercentage =
-    total > 0
-      ? Math.round((resolved / total) * 100)
-      : 0;
-
-  const highPriorityPercentage =
-    total > 0
-      ? Math.round((highPriority / total) * 100)
-      : 0;
-
-  const pendingPercentage =
-    total > 0
-      ? Math.round((pending / total) * 100)
-      : 0;
-
-  // =========================================================
   // LOADING
-  // =========================================================
 
   if (loading) {
     return (
-      <div className="analytics-page">
-        <div className="analytics-container">
-
-          <div className="analytics-header">
-
-            <p className="hero-label">
-              ADMIN ANALYTICS
-            </p>
-
-            <h1>
-              Loading Analytics...
-            </h1>
-
-          </div>
-
-        </div>
+      <div className="analytics-loading">
+        <div className="analytics-loader"></div>
+        <h2>Preparing your analytics...</h2>
+        <p>Loading complaint statistics</p>
       </div>
     );
   }
 
   return (
-    <div className="analytics-page">
+    <div className="campus-analytics">
 
-      {/* =====================================================
-          NAVIGATION
-      ===================================================== */}
+      {/* NAVBAR */}
 
-      <nav className="main-nav">
+      <nav className="analytics-nav">
 
-        <div className="brand">
+        <a href="/dashboard" className="analytics-brand">
+          <span className="analytics-brand-icon">🏛️</span>
 
-          <div className="brand-icon">
-            🏫
-          </div>
+          <span>
+            <strong>CampusCare</strong>
+            <small>SMART CAMPUS SOLUTIONS</small>
+          </span>
+        </a>
 
-          <div>
-
-            <h2>
-              AI-Powered Complaint System
-            </h2>
-
-            <p>
-              Your Voice, A Better Campus
-            </p>
-
-          </div>
-
-        </div>
-
-        <div className="nav-links">
-
-          <a
-            href="/dashboard"
-            className="nav-link"
-          >
-            Dashboard
-          </a>
-
-          <a
-            href="/admin-complaints"
-            className="nav-link"
-          >
-            Admin Complaints
-          </a>
-
-          <a
-            href="/analytics"
-            className="nav-link active"
-          >
+        <div className="analytics-nav-links">
+          <a href="/dashboard">Dashboard</a>
+          <a href="/admin-complaints">Complaints</a>
+          <a href="/analytics" className="selected">
             Analytics
           </a>
-
         </div>
 
       </nav>
 
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
+      <main className="analytics-main">
 
-      <div className="analytics-container">
+        {/* PAGE HEADER */}
 
-        {/* ===================================================
-            HEADER
-        =================================================== */}
+        <section className="analytics-hero">
 
-        <div className="analytics-header">
+          <div>
+            <span className="analytics-eyebrow">
+              CAMPUSCARE • ADMIN INSIGHTS
+            </span>
 
-          <p className="hero-label">
-            ADMIN ANALYTICS
-          </p>
+            <h1>
+              Analytics <span>Overview.</span>
+            </h1>
 
-          <h1>
-            Complaint <span>Overview 📊</span>
-          </h1>
+            <p>
+              Understand complaint activity, monitor performance
+              and discover areas that need attention.
+            </p>
+          </div>
 
-          <p>
-            Monitor complaint activity and resolution progress.
-          </p>
+          <div className="analytics-hero-icon">
+            📊
+          </div>
 
-        </div>
+        </section>
 
-        {/* ===================================================
-            STATISTICS CARDS
-        =================================================== */}
+        {/* STATISTICS */}
 
-        <div className="analytics-cards">
+        <section className="analytics-stats-grid">
 
-          <div className="analytics-card">
-
-            <div className="analytics-icon">
+          <div className="analytics-stat-card">
+            <div className="analytics-stat-icon purple">
               📋
             </div>
-
-            <h3>
-              Total Complaints
-            </h3>
-
-            <strong>
-              {total}
-            </strong>
-
+            <p>Total Complaints</p>
+            <h2>{total}</h2>
+            <span>All submitted complaints</span>
           </div>
 
-          <div className="analytics-card">
-
-            <div className="analytics-icon">
+          <div className="analytics-stat-card">
+            <div className="analytics-stat-icon orange">
               ⏳
             </div>
-
-            <h3>
-              Pending
-            </h3>
-
-            <strong>
-              {pending}
-            </strong>
-
+            <p>Pending</p>
+            <h2>{pending}</h2>
+            <span>{pendingPercentage}% of total complaints</span>
           </div>
 
-          <div className="analytics-card">
-
-            <div className="analytics-icon">
-              🔄
+          <div className="analytics-stat-card">
+            <div className="analytics-stat-icon blue">
+              ⚙️
             </div>
-
-            <h3>
-              In Progress
-            </h3>
-
-            <strong>
-              {inProgress}
-            </strong>
-
+            <p>In Progress</p>
+            <h2>{inProgress}</h2>
+            <span>{progressPercentage}% currently being handled</span>
           </div>
 
-          <div className="analytics-card">
-
-            <div className="analytics-icon">
-              ✅
+          <div className="analytics-stat-card">
+            <div className="analytics-stat-icon green">
+              ✓
             </div>
-
-            <h3>
-              Resolved
-            </h3>
-
-            <strong>
-              {resolved}
-            </strong>
-
+            <p>Resolved</p>
+            <h2>{resolved}</h2>
+            <span>{resolvedPercentage}% resolution rate</span>
           </div>
 
-          <div className="analytics-card">
+        </section>
 
-            <div className="analytics-icon">
-              🚨
-            </div>
+        {/* CHARTS */}
 
-            <h3>
-              High Priority
-            </h3>
+        <section className="analytics-chart-grid">
 
-            <strong>
-              {highPriority}
-            </strong>
+          {/* STATUS CHART */}
 
-          </div>
+          <div className="analytics-panel">
 
-        </div>
-
-        {/* ===================================================
-            AI ANALYSIS
-        =================================================== */}
-
-        <div className="analytics-ai-card">
-
-          <div className="ai-analysis-header">
-
-            <div className="ai-analysis-icon">
-              🧠
-            </div>
-
-            <div>
-
-              <p className="ai-analysis-label">
-                INTELLIGENT DATA ANALYSIS
-              </p>
-
-              <h2>
-                AI Complaint Insights
-              </h2>
-
-            </div>
-
-          </div>
-
-          <p className="ai-analysis-description">
-            Automated analysis of complaint data to identify
-            important trends and priority areas.
-          </p>
-
-          <div className="ai-insights-grid">
-
-            <div className="ai-insight">
-
-              <div className="ai-insight-icon">
-                📌
-              </div>
-
+            <div className="analytics-panel-heading">
               <div>
+                <span>COMPLAINT STATUS</span>
+                <h2>Resolution Overview</h2>
+              </div>
 
-                <h3>
-                  Most Reported Category
-                </h3>
+              <div className="analytics-panel-icon">
+                📈
+              </div>
+            </div>
 
-                <strong>
-                  {topCategory}
-                </strong>
+            <div className="analytics-status-chart">
 
-                <p>
-                  This category currently has the highest
-                  number of complaints.
-                </p>
+              <div
+                className="analytics-donut"
+                style={{
+                  background: `conic-gradient(
+                    #20b982 0% ${resolvedPercentage}%,
+                    #5685f5 ${resolvedPercentage}% ${resolvedPercentage + progressPercentage}%,
+                    #f5a742 ${resolvedPercentage + progressPercentage}% 100%
+                  )`
+                }}
+              >
+
+                <div className="analytics-donut-inner">
+                  <strong>{total}</strong>
+                  <span>Complaints</span>
+                </div>
+
+              </div>
+
+              <div className="analytics-legend">
+
+                <div>
+                  <span className="legend-dot green-dot"></span>
+                  <span>Resolved</span>
+                  <strong>{resolved}</strong>
+                </div>
+
+                <div>
+                  <span className="legend-dot blue-dot"></span>
+                  <span>In Progress</span>
+                  <strong>{inProgress}</strong>
+                </div>
+
+                <div>
+                  <span className="legend-dot orange-dot"></span>
+                  <span>Pending</span>
+                  <strong>{pending}</strong>
+                </div>
 
               </div>
 
             </div>
 
-            <div className="ai-insight">
+          </div>
 
-              <div className="ai-insight-icon">
+          {/* PRIORITY PANEL */}
+
+          <div className="analytics-panel">
+
+            <div className="analytics-panel-heading">
+              <div>
+                <span>PRIORITY ANALYSIS</span>
+                <h2>Complaint Priorities</h2>
+              </div>
+
+              <div className="analytics-panel-icon">
                 🚨
               </div>
+            </div>
+
+            <div className="priority-highlight">
 
               <div>
+                <p>High Priority Complaints</p>
+                <h2>{highPriority}</h2>
+                <span>Require special attention</span>
+              </div>
 
-                <h3>
-                  High Priority Complaints
-                </h3>
-
-                <strong>
-                  {highPriorityPercentage}%
-                </strong>
-
-                <p>
-                  {highPriority} out of {total} complaints
-                  are marked as high priority.
-                </p>
-
+              <div className="priority-percentage">
+                {highPercentage}%
               </div>
 
             </div>
 
-            <div className="ai-insight">
-
-              <div className="ai-insight-icon">
-                ✅
-              </div>
-
-              <div>
-
-                <h3>
-                  Resolution Rate
-                </h3>
-
-                <strong>
-                  {resolvedPercentage}%
-                </strong>
-
-                <p>
-                  {resolved} out of {total} complaints
-                  have been resolved.
-                </p>
-
-              </div>
-
+            <div className="priority-progress-track">
+              <div
+                className="priority-progress-fill"
+                style={{ width: `${highPercentage}%` }}
+              ></div>
             </div>
 
-            <div className="ai-insight">
-
-              <div className="ai-insight-icon">
-                ⏳
-              </div>
-
-              <div>
-
-                <h3>
-                  Pending Complaints
-                </h3>
-
-                <strong>
-                  {pendingPercentage}%
-                </strong>
-
-                <p>
-                  {pending} complaints are currently
-                  waiting for action.
-                </p>
-
-              </div>
-
-            </div>
+            <p className="priority-note">
+              {highPriority} out of {total} complaints
+              are marked as high priority.
+            </p>
 
           </div>
 
-        </div>
+        </section>
 
-        {/* ===================================================
-            STATUS SUMMARY
-        =================================================== */}
+        {/* CATEGORY ANALYSIS */}
 
-        <div className="analytics-table-card">
+        <section className="analytics-panel category-panel">
 
-          <h2>
-            Status Summary
-          </h2>
+          <div className="analytics-panel-heading">
+            <div>
+              <span>CATEGORY BREAKDOWN</span>
+              <h2>Most Reported Issues</h2>
+            </div>
 
-          <div className="analytics-table-wrapper">
-
-            <table className="analytics-table">
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    Status
-                  </th>
-
-                  <th>
-                    Complaints
-                  </th>
-
-                  <th>
-                    Share
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                <tr>
-
-                  <td>
-                    <span className="analytics-status analytics-pending">
-                      Pending
-                    </span>
-                  </td>
-
-                  <td>
-                    {pending}
-                  </td>
-
-                  <td>
-                    {pendingPercentage}%
-                  </td>
-
-                </tr>
-
-                <tr>
-
-                  <td>
-                    <span className="analytics-status analytics-in_progress">
-                      In Progress
-                    </span>
-                  </td>
-
-                  <td>
-                    {inProgress}
-                  </td>
-
-                  <td>
-                    {total > 0
-                      ? Math.round(
-                          (inProgress / total) * 100
-                        )
-                      : 0}
-                    %
-                  </td>
-
-                </tr>
-
-                <tr>
-
-                  <td>
-                    <span className="analytics-status analytics-resolved">
-                      Resolved
-                    </span>
-                  </td>
-
-                  <td>
-                    {resolved}
-                  </td>
-
-                  <td>
-                    {resolvedPercentage}%
-                  </td>
-
-                </tr>
-
-              </tbody>
-
-            </table>
-
+            <div className="analytics-panel-icon">
+              📂
+            </div>
           </div>
-
-        </div>
-
-        {/* ===================================================
-            CATEGORY SUMMARY
-        =================================================== */}
-
-        <div className="analytics-table-card">
-
-          <h2>
-            Category Summary
-          </h2>
 
           {categoryEntries.length === 0 ? (
 
-            <div className="analytics-empty">
-
-              <div>
-                📊
-              </div>
-
-              <p>
-                No category data available.
-              </p>
-
+            <div className="analytics-no-data">
+              No category data available.
             </div>
 
           ) : (
 
-            <div className="analytics-table-wrapper">
+            <div className="category-bars">
 
-              <table className="analytics-table">
+              {categoryEntries.map(([category, count]) => {
 
-                <thead>
+                const percentage = total
+                  ? Math.round((count / total) * 100)
+                  : 0;
 
-                  <tr>
+                return (
+                  <div
+                    className="category-bar-item"
+                    key={category}
+                  >
 
-                    <th>
-                      Category
-                    </th>
+                    <div className="category-bar-heading">
+                      <strong>{category}</strong>
 
-                    <th>
-                      Complaints
-                    </th>
+                      <span>
+                        {count} complaints ({percentage}%)
+                      </span>
+                    </div>
 
-                    <th>
-                      Share
-                    </th>
+                    <div className="category-bar-track">
+                      <div
+                        className="category-bar-fill"
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
 
-                  </tr>
+                  </div>
+                );
 
-                </thead>
-
-                <tbody>
-
-                  {categoryEntries.map(
-                    ([category, count]) => (
-
-                      <tr key={category}>
-
-                        <td>
-                          {category}
-                        </td>
-
-                        <td>
-                          {count}
-                        </td>
-
-                        <td>
-                          {total > 0
-                            ? Math.round(
-                                (count / total) * 100
-                              )
-                            : 0}
-                          %
-                        </td>
-
-                      </tr>
-
-                    )
-                  )}
-
-                </tbody>
-
-              </table>
+              })}
 
             </div>
 
           )}
 
-        </div>
+        </section>
 
-        {/* ===================================================
-            COMPLAINT DETAILS
-        =================================================== */}
+        {/* INSIGHTS */}
 
-        <div className="analytics-table-card">
+        <section className="analytics-insights">
 
-          <h2>
-            Complaint Details
-          </h2>
+          <div className="analytics-insights-header">
+
+            <div className="analytics-stat-icon purple">
+              ✨
+            </div>
+
+            <div>
+              <span>RULE-BASED DATA INSIGHTS</span>
+              <h2>Complaint Insights</h2>
+            </div>
+
+          </div>
+
+          <div className="analytics-insight-grid">
+
+            <div className="analytics-insight-card">
+              <span>📌</span>
+              <p>Most Reported Category</p>
+              <h3>{topCategory}</h3>
+              <small>
+                Category with the most complaints
+              </small>
+            </div>
+
+            <div className="analytics-insight-card">
+              <span>✅</span>
+              <p>Resolution Rate</p>
+              <h3>{resolvedPercentage}%</h3>
+              <small>
+                {resolved} complaints resolved
+              </small>
+            </div>
+
+            <div className="analytics-insight-card">
+              <span>⏳</span>
+              <p>Awaiting Attention</p>
+              <h3>{pending}</h3>
+              <small>
+                Complaints still pending
+              </small>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* COMPLAINT RECORDS */}
+
+        <section className="analytics-panel records-panel">
+
+          <div className="analytics-panel-heading">
+
+            <div>
+              <span>COMPLAINT DATABASE</span>
+              <h2>Recent Complaint Records</h2>
+            </div>
+
+            <span className="records-count">
+              {total} Records
+            </span>
+
+          </div>
 
           {complaints.length === 0 ? (
 
-            <div className="analytics-empty">
-
-              <div>
-                📭
-              </div>
-
-              <p>
-                No complaints available.
-              </p>
-
+            <div className="analytics-no-data">
+              No complaints available.
             </div>
 
           ) : (
 
-            <div className="analytics-table-wrapper">
+            <div className="analytics-table-scroll">
 
-              <table className="analytics-table">
+              <table className="analytics-records-table">
 
                 <thead>
-
                   <tr>
-
-                    <th>
-                      ID
-                    </th>
-
-                    <th>
-                      Title
-                    </th>
-
-                    <th>
-                      Category
-                    </th>
-
-                    <th>
-                      Priority
-                    </th>
-
-                    <th>
-                      Status
-                    </th>
-
+                    <th>ID</th>
+                    <th>Complaint</th>
+                    <th>Student Email</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
                   </tr>
-
                 </thead>
 
                 <tbody>
 
-                  {complaints.map(
-                    (complaint) => (
+                  {complaints.map((complaint) => (
 
-                      <tr key={complaint.id}>
+                    <tr key={complaint.id}>
 
-                        <td>
-                          #{complaint.id}
-                        </td>
+                      <td>
+                        #{complaint.id}
+                      </td>
 
-                        <td>
-                          {complaint.title}
-                        </td>
+                      <td className="record-title">
+                        {complaint.title}
+                      </td>
 
-                        <td>
-                          {complaint.category}
-                        </td>
+                      {/* STUDENT EMAIL */}
 
-                        <td>
+                      <td className="record-email">
+                        📧 {complaint.user_email || "Email unavailable"}
+                      </td>
+
+                      <td>
+                        {complaint.category}
+                      </td>
+
+                      <td>
+                        <span
+                          className={`record-priority ${complaint.priority}`}
+                        >
                           {complaint.priority}
-                        </td>
+                        </span>
+                      </td>
 
-                        <td>
+                      <td>
+                        <span
+                          className={`record-status ${complaint.status}`}
+                        >
+                          {complaint.status?.replace("_", " ")}
+                        </span>
+                      </td>
 
-                          <span
-                            className={`analytics-status analytics-${complaint.status}`}
-                          >
-                            {complaint.status?.replace(
-                              "_",
-                              " "
-                            )}
-                          </span>
+                    </tr>
 
-                        </td>
-
-                      </tr>
-
-                    )
-                  )}
+                  ))}
 
                 </tbody>
 
@@ -728,24 +503,15 @@ function Analytics() {
 
           )}
 
-        </div>
+        </section>
 
-      </div>
+      </main>
 
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
+      {/* FOOTER */}
 
-      <footer className="main-footer">
-
-        <strong>
-          AI-Powered Complaint System
-        </strong>
-
-        <span>
-          Report &nbsp; | &nbsp; Resolve &nbsp; | &nbsp; Improve ❤️
-        </span>
-
+      <footer className="analytics-footer">
+        <strong>CampusCare</strong>
+        <span>Report. Resolve. Improve. 💜</span>
       </footer>
 
     </div>

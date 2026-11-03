@@ -514,49 +514,83 @@ def update_complaint_status(
         require_role("staff", "admin")
     )
 ):
-
     try:
+        # Valid statuses must match the frontend values
         valid_statuses = [
             "pending",
-            "in progress",
+            "in_progress",
             "resolved"
         ]
 
-        if status_data.status.lower() not in valid_statuses:
-            return {
-                "error": "Invalid complaint status"
-            }
+        new_status = status_data.status.lower().strip()
 
+        if new_status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid complaint status"
+            )
+
+        # Check whether complaint exists
+        complaint = complaints_collection.find_one({
+            "id": complaint_id
+        })
+
+        if not complaint:
+            raise HTTPException(
+                status_code=404,
+                detail="Complaint not found"
+            )
+
+        # Staff can update only complaints assigned to them
+        if current_user["role"] == "staff":
+
+            assignment = assignments_collection.find_one({
+                "complaint_id": complaint_id,
+                "staff_id": current_user["user_id"]
+            })
+
+            if not assignment:
+                raise HTTPException(
+                    status_code=403,
+                    detail="This complaint is not assigned to you"
+                )
+
+        # Update MongoDB
         updated_time = datetime.utcnow()
 
         result = complaints_collection.update_one(
             {"id": complaint_id},
             {
                 "$set": {
-                    "status": status_data.status,
+                    "status": new_status,
                     "updated_at": updated_time
                 }
             }
         )
 
         if result.matched_count == 0:
-            return {
-                "error": "Complaint not found"
-            }
+            raise HTTPException(
+                status_code=404,
+                detail="Complaint not found"
+            )
 
         return {
             "message": "Complaint status updated successfully",
             "complaint": {
                 "id": complaint_id,
-                "status": status_data.status,
+                "status": new_status,
                 "updated_at": updated_time
             }
         }
 
+    except HTTPException:
+        raise
+
     except Exception as error:
-        return {
-            "error": str(error)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
 # ---------------------------------------------------------
 # ASSIGN COMPLAINT TO STAFF
 # ---------------------------------------------------------

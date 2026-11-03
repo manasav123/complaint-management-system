@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "../services/api";
 
 function Complaint() {
@@ -6,18 +7,16 @@ function Complaint() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [message, setMessage] = useState("");
 
-  const [aiLoading, setAiLoading] = useState(false);
+  const [message, setMessage] = useState("");
   const [aiMessage, setAiMessage] = useState("");
 
-  // IMAGE UPLOAD STATES
+  const [aiLoading, setAiLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
 
-  const [submitting, setSubmitting] = useState(false);
-
-  // Clean up image preview URL
   useEffect(() => {
     return () => {
       if (imagePreview) {
@@ -26,10 +25,7 @@ function Complaint() {
     };
   }, [imagePreview]);
 
-  // ---------------------------------------------------------
   // IMAGE SELECTION
-  // ---------------------------------------------------------
-
   const handleImageChange = (event) => {
     const file = event.target.files[0];
 
@@ -58,10 +54,7 @@ function Complaint() {
     setImagePreview(URL.createObjectURL(file));
   };
 
-  // ---------------------------------------------------------
-  // REMOVE SELECTED IMAGE
-  // ---------------------------------------------------------
-
+  // REMOVE IMAGE
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview("");
@@ -73,12 +66,9 @@ function Complaint() {
     }
   };
 
-  // ---------------------------------------------------------
-  // AI CLASSIFICATION
-  // ---------------------------------------------------------
-
+  // RULE-BASED AI CLASSIFICATION
   const handleAIClassify = async () => {
-    if (!title || !description) {
+    if (!title.trim() || !description.trim()) {
       setAiMessage(
         "Please enter the complaint title and description first."
       );
@@ -103,24 +93,21 @@ function Complaint() {
       setPriority(response.data.priority);
 
       setAiMessage(
-        `AI classified this as ${response.data.category} with ${response.data.priority} priority.`
+        `Suggested category: ${response.data.category} | Priority: ${response.data.priority}`
       );
     } catch (error) {
       console.error(error);
-      setAiMessage("AI classification failed. Please try again.");
+      setAiMessage("Classification failed. Please try again.");
     } finally {
       setAiLoading(false);
     }
   };
 
-  // ---------------------------------------------------------
   // SUBMIT COMPLAINT
-  // ---------------------------------------------------------
-
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!title || !description || !category) {
+    if (!title.trim() || !description.trim() || !category) {
       setMessage("Please fill in all required fields.");
       return;
     }
@@ -137,7 +124,6 @@ function Complaint() {
 
     try {
       // STEP 1: CREATE COMPLAINT
-
       const response = await api.post("/complaints", {
         user_id: user.id,
         title,
@@ -151,8 +137,6 @@ function Complaint() {
         return;
       }
 
-      // Get the newly created complaint ID
-
       const complaintId =
         response.data.complaint?.id ?? response.data.id;
 
@@ -163,11 +147,9 @@ function Complaint() {
         return;
       }
 
-      // STEP 2: UPLOAD IMAGE IF SELECTED
-
+      // STEP 2: UPLOAD IMAGE
       if (selectedImage) {
         const formData = new FormData();
-
         formData.append("image", selectedImage);
 
         try {
@@ -183,7 +165,7 @@ function Complaint() {
           console.error(imageError);
 
           setMessage(
-            "Complaint submitted successfully, but image upload failed. You can try uploading it again."
+            "Complaint submitted, but image upload failed."
           );
         }
       } else {
@@ -191,7 +173,6 @@ function Complaint() {
       }
 
       // STEP 3: RESET FORM
-
       setTitle("");
       setDescription("");
       setCategory("");
@@ -213,256 +194,322 @@ function Complaint() {
   };
 
   return (
-    <div className="form-page">
-      <div className="form-container">
+    <div className="cc-complaint-page">
+
+      {/* NAVIGATION */}
+      <nav className="cc-complaint-nav">
+
+        <Link to="/dashboard" className="cc-complaint-brand">
+          <span className="cc-brand-icon">🏛️</span>
+
+          <span>
+            <strong>CampusCare</strong>
+            <small>SMART CAMPUS SOLUTIONS</small>
+          </span>
+        </Link>
+
+        <Link to="/dashboard" className="cc-nav-dashboard">
+          ← Dashboard
+        </Link>
+
+      </nav>
+
+      <div className="cc-complaint-container">
 
         {/* PAGE HEADER */}
+        <div className="cc-complaint-heading">
 
-        <div className="form-header">
-
-          <p className="dashboard-label">
-            COMPLAINT MANAGEMENT
-          </p>
+          <div className="cc-heading-badge">
+            CAMPUSCARE • STUDENT SUPPORT
+          </div>
 
           <h1>
-            Submit a Complaint
+            Your Voice, <span>Our Priority.</span>
           </h1>
 
           <p>
-            Tell us about the issue and we'll make sure it reaches
-            the appropriate team.
+            Share your concern with us. Our team will work
+            towards making your campus a better place.
           </p>
 
         </div>
 
-        {/* COMPLAINT FORM */}
+        {/* INFORMATION CARDS */}
+        <div className="cc-info-cards">
 
-        <form
-          className="complaint-form"
-          onSubmit={handleSubmit}
-        >
-
-          {/* TITLE */}
-
-          <div className="form-group">
-
-            <label htmlFor="title">
-              Complaint Title
-            </label>
-
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(event) =>
-                setTitle(event.target.value)
-              }
-              placeholder="Example: Classroom fan not working"
-            />
-
-          </div>
-
-          {/* DESCRIPTION */}
-
-          <div className="form-group">
-
-            <label htmlFor="description">
-              Description
-            </label>
-
-            <textarea
-              id="description"
-              value={description}
-              onChange={(event) =>
-                setDescription(event.target.value)
-              }
-              placeholder="Describe the problem in detail..."
-            />
-
-          </div>
-
-          {/* AI BUTTON */}
-
-          <button
-            type="button"
-            className="ai-button"
-            onClick={handleAIClassify}
-            disabled={aiLoading || submitting}
-          >
-            {aiLoading
-              ? "🤖 AI Analyzing..."
-              : "🤖 Classify with AI"}
-          </button>
-
-          {/* AI MESSAGE */}
-
-          {aiMessage && (
-            <div className="ai-message">
-              {aiMessage}
+          <div className="cc-info-card">
+            <div className="cc-info-icon">📝</div>
+            <div>
+              <h3>Share your concern</h3>
+              <p>Explain your issue clearly</p>
             </div>
-          )}
+          </div>
 
-          {/* IMAGE UPLOAD */}
+          <div className="cc-info-card">
+            <div className="cc-info-icon">✨</div>
+            <div>
+              <h3>Smart classification</h3>
+              <p>Get category suggestions</p>
+            </div>
+          </div>
 
-          <div className="form-group image-upload-group">
+          <div className="cc-info-card">
+            <div className="cc-info-icon">📊</div>
+            <div>
+              <h3>Track progress</h3>
+              <p>Stay updated on your concern</p>
+            </div>
+          </div>
 
-            <label htmlFor="complaint-image">
-              📷 Attach Complaint Image (Optional)
-            </label>
+        </div>
 
-            <input
-              type="file"
-              id="complaint-image"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleImageChange}
-              disabled={submitting}
-            />
+        {/* MAIN FORM */}
+        <div className="cc-form-card">
 
-            <small>
-              Accepted formats: JPG, PNG and WebP. Maximum size: 5 MB.
-            </small>
+          <div className="cc-form-card-header">
 
-            {/* IMAGE PREVIEW */}
+            <div>
+              <span className="cc-section-label">
+                NEW COMPLAINT
+              </span>
 
-            {imagePreview && (
-              <div className="image-preview">
+              <h2>Tell us what happened</h2>
 
-                <img
-                  src={imagePreview}
-                  alt="Complaint preview"
-                />
+              <p>
+                Fill in the details below to submit your concern.
+              </p>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={removeImage}
+            <div className="cc-form-icon">📋</div>
+
+          </div>
+
+          <form onSubmit={handleSubmit}>
+
+            {/* TITLE */}
+            <div className="cc-form-group">
+
+              <label htmlFor="title">
+                Complaint title <span>*</span>
+              </label>
+
+              <input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Classroom fan is not working"
+                required
+                disabled={submitting}
+              />
+
+            </div>
+
+            {/* DESCRIPTION */}
+            <div className="cc-form-group">
+
+              <label htmlFor="description">
+                Describe your issue <span>*</span>
+              </label>
+
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us what happened, where it happened, and any important details..."
+                rows="5"
+                required
+                disabled={submitting}
+              />
+
+              <small>
+                The more details you provide, the easier it is
+                for the team to understand your concern.
+              </small>
+
+            </div>
+
+            {/* AI CLASSIFICATION */}
+            <div className="cc-ai-card">
+
+              <div className="cc-ai-content">
+
+                <div className="cc-ai-icon">✨</div>
+
+                <div>
+                  <h3>Smart Complaint Classification</h3>
+
+                  <p>
+                    Get automatic category and priority
+                    suggestions based on your complaint details.
+                  </p>
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                className="cc-ai-button"
+                onClick={handleAIClassify}
+                disabled={aiLoading || submitting}
+              >
+                {aiLoading
+                  ? "Analyzing..."
+                  : "✨ Classify My Complaint"}
+              </button>
+
+              {aiMessage && (
+                <div className="cc-ai-message">
+                  {aiMessage}
+                </div>
+              )}
+
+            </div>
+
+            {/* CATEGORY AND PRIORITY */}
+            <div className="cc-form-row">
+
+              <div className="cc-form-group">
+
+                <label htmlFor="category">
+                  Complaint category <span>*</span>
+                </label>
+
+                <select
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  required
                   disabled={submitting}
                 >
-                  Remove Image ✖
-                </button>
+                  <option value="">Select a category</option>
+                  <option value="Academic">Academic</option>
+                  <option value="Hostel">Hostel</option>
+                  <option value="Library">Library</option>
+                  <option value="Infrastructure">Infrastructure</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Other">Other</option>
+                </select>
 
+              </div>
+
+              <div className="cc-form-group">
+
+                <label htmlFor="priority">
+                  Priority level
+                </label>
+
+                <select
+                  id="priority"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  disabled={submitting}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+
+              </div>
+
+            </div>
+
+            {/* IMAGE UPLOAD */}
+            <div className="cc-upload-section">
+
+              <label className="cc-upload-label">
+                📷 Attach supporting image
+                <span> (Optional)</span>
+              </label>
+
+              <label
+                htmlFor="complaint-image"
+                className="cc-upload-box"
+              >
+
+                <div className="cc-upload-icon">☁️</div>
+
+                <h3>Click to upload an image</h3>
+
+                <p>
+                  JPG, PNG or WebP • Maximum size 5 MB
+                </p>
+
+                <input
+                  type="file"
+                  id="complaint-image"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageChange}
+                  disabled={submitting}
+                />
+
+              </label>
+
+              {imagePreview && (
+                <div className="cc-image-preview">
+
+                  <img
+                    src={imagePreview}
+                    alt="Complaint attachment preview"
+                  />
+
+                  <div className="cc-image-details">
+                    <strong>{selectedImage?.name}</strong>
+
+                    <small>
+                      {(selectedImage.size / (1024 * 1024)).toFixed(2)} MB
+                    </small>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    disabled={submitting}
+                  >
+                    ✕
+                  </button>
+
+                </div>
+              )}
+
+            </div>
+
+            {/* SUBMIT BUTTON */}
+            <div className="cc-submit-section">
+
+              <button
+                type="submit"
+                className="cc-submit-button"
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Submitting your complaint..."
+                  : "Submit Complaint →"}
+              </button>
+
+              <p>
+                🔒 Your complaint details are handled securely.
+              </p>
+
+            </div>
+
+            {/* MESSAGE */}
+            {message && (
+              <div className="cc-form-message">
+                {message}
               </div>
             )}
 
-          </div>
+          </form>
 
-          {/* CATEGORY + PRIORITY */}
+        </div>
 
-          <div className="form-row">
-
-            {/* CATEGORY */}
-
-            <div className="form-group">
-
-              <label htmlFor="category">
-                Category
-              </label>
-
-              <select
-                id="category"
-                value={category}
-                onChange={(event) =>
-                  setCategory(event.target.value)
-                }
-              >
-
-                <option value="">
-                  Select category
-                </option>
-
-                <option value="Academic">
-                  Academic
-                </option>
-
-                <option value="Hostel">
-                  Hostel
-                </option>
-
-                <option value="Library">
-                  Library
-                </option>
-
-                <option value="Infrastructure">
-                  Infrastructure
-                </option>
-
-                <option value="Transport">
-                  Transport
-                </option>
-
-                <option value="Other">
-                  Other
-                </option>
-
-              </select>
-
-            </div>
-
-            {/* PRIORITY */}
-
-            <div className="form-group">
-
-              <label htmlFor="priority">
-                Priority
-              </label>
-
-              <select
-                id="priority"
-                value={priority}
-                onChange={(event) =>
-                  setPriority(event.target.value)
-                }
-              >
-
-                <option value="low">
-                  Low
-                </option>
-
-                <option value="medium">
-                  Medium
-                </option>
-
-                <option value="high">
-                  High
-                </option>
-
-              </select>
-
-            </div>
-
-          </div>
-
-          {/* SUBMIT BUTTON */}
-
-          <button
-            className="submit-button"
-            type="submit"
-            disabled={submitting}
-          >
-            {submitting
-              ? "Submitting Complaint..."
-              : "Submit Complaint"}
-          </button>
-
-          {/* SUCCESS / ERROR MESSAGE */}
-
-          {message && (
-            <div className="form-message">
-              {message}
-            </div>
-          )}
-
-        </form>
-
-        {/* BACK TO DASHBOARD */}
-
-        <a
-          href="/dashboard"
-          className="back-link"
-        >
-          ← Back to Dashboard
-        </a>
+        <div className="cc-bottom-note">
+          Need help? CampusCare is here to support you. 💜
+        </div>
 
       </div>
+
     </div>
   );
 }

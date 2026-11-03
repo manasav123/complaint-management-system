@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../services/api";
 
 function AdminComplaints() {
@@ -14,10 +15,11 @@ function AdminComplaints() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 
+  const [loading, setLoading] = useState(true);
+
   // LOAD COMPLAINTS
   const loadComplaints = () => {
-    api
-      .get("/complaints")
+    api.get("/complaints")
       .then((response) => {
         const data = Array.isArray(response.data)
           ? response.data
@@ -26,29 +28,26 @@ function AdminComplaints() {
         setComplaints(data);
       })
       .catch((error) => {
-        console.error("Error loading complaints:", error);
+        console.error(error);
         setMessage("Unable to load complaints.");
-      });
+      })
+      .finally(() => setLoading(false));
   };
 
-  // LOAD STAFF MEMBERS
+  // LOAD STAFF
   const loadStaff = () => {
-    api
-      .get("/staff")
+    api.get("/staff")
       .then((response) => {
-        const data = Array.isArray(response.data)
-          ? response.data
-          : [];
-
-        setStaffMembers(data);
+        setStaffMembers(
+          Array.isArray(response.data) ? response.data : []
+        );
       })
       .catch((error) => {
-        console.error("Error loading staff:", error);
+        console.error(error);
         setMessage("Unable to load staff members.");
       });
   };
 
-  // INITIAL LOAD
   useEffect(() => {
     loadComplaints();
     loadStaff();
@@ -89,8 +88,6 @@ function AdminComplaints() {
 
       if (active) {
         setComplaintImages(Object.fromEntries(results));
-      } else {
-        objectUrls.forEach((url) => URL.revokeObjectURL(url));
       }
     };
 
@@ -136,25 +133,37 @@ function AdminComplaints() {
 
     setFilteredComplaints(result);
   }, [
+    complaints,
     search,
     statusFilter,
     categoryFilter,
     priorityFilter,
-    complaints,
   ]);
+
+  // STATISTICS
+  const totalComplaints = complaints.length;
+
+  const pendingCount = complaints.filter(
+    (c) => c.status === "pending"
+  ).length;
+
+  const progressCount = complaints.filter(
+    (c) => c.status === "in_progress"
+  ).length;
+
+  const resolvedCount = complaints.filter(
+    (c) => c.status === "resolved"
+  ).length;
 
   // UPDATE STATUS
   const updateStatus = (complaintId, status) => {
-    api
-      .put(`/complaints/${complaintId}/status`, {
-        status: status,
-      })
+    api.put(`/complaints/${complaintId}/status`, { status })
       .then(() => {
         setMessage("Complaint status updated successfully.");
         loadComplaints();
       })
       .catch((error) => {
-        console.error("Error updating status:", error);
+        console.error(error);
         setMessage("Unable to update complaint status.");
       });
   };
@@ -176,17 +185,16 @@ function AdminComplaints() {
       return;
     }
 
-    api
-      .post(`/complaints/${complaintId}/assign`, {
-        staff_id: Number(staffId),
-      })
+    api.post(`/complaints/${complaintId}/assign`, {
+      staff_id: Number(staffId),
+    })
       .then((response) => {
         if (response.data.error) {
           setMessage(response.data.error);
           return;
         }
 
-        setMessage("Complaint assigned to staff successfully.");
+        setMessage("Complaint assigned successfully! 🎉");
 
         setSelectedStaff((previous) => ({
           ...previous,
@@ -196,7 +204,7 @@ function AdminComplaints() {
         loadComplaints();
       })
       .catch((error) => {
-        console.error("Error assigning complaint:", error);
+        console.error(error);
         setMessage("Unable to assign complaint.");
       });
   };
@@ -209,84 +217,141 @@ function AdminComplaints() {
     setPriorityFilter("all");
   };
 
-  // GET CATEGORIES
+  // CATEGORIES
   const categories = [
     ...new Set(
-      complaints
-        .map((complaint) => complaint.category)
-        .filter(Boolean)
+      complaints.map((c) => c.category).filter(Boolean)
     ),
   ];
 
   return (
-    <div className="admin-page">
+    <div className="ca-admin-page">
 
-      {/* NAVBAR */}
-      <nav className="main-nav">
-        <div className="nav-brand">
-          <span className="nav-logo">🎓</span>
-          <span>Complaint Management System</span>
+      {/* NAVIGATION */}
+      <nav className="ca-admin-nav">
+
+        <Link to="/dashboard" className="ca-admin-brand">
+          <span className="ca-brand-icon">🎓</span>
+          <span>Campus<span>Care</span></span>
+        </Link>
+
+        <div className="ca-admin-nav-links">
+          <Link to="/dashboard">Dashboard</Link>
+          <Link to="/admin-complaints" className="active">
+            Complaints
+          </Link>
+          <Link to="/analytics">Analytics</Link>
         </div>
 
-        <div className="nav-links">
-          <a href="/dashboard">Dashboard</a>
-
-          <a href="/admin-complaints" className="active">
-            Admin Complaints
-          </a>
-
-          <a href="/analytics">Analytics</a>
+        <div className="ca-admin-profile">
+          <span>🛡️</span>
+          <div>
+            <strong>Administrator</strong>
+            <small>Management Panel</small>
+          </div>
         </div>
+
       </nav>
 
-      {/* MAIN CONTENT */}
-      <div className="admin-container">
+      <main className="ca-admin-container">
 
-        <div className="admin-header">
+        {/* PAGE HEADING */}
+        <section className="ca-admin-heading">
+
           <div>
-            <p className="page-eyebrow">ADMIN PANEL</p>
+            <span className="ca-admin-eyebrow">
+              CAMPUSCARE • ADMINISTRATION
+            </span>
 
-            <h1>Complaint Management</h1>
+            <h1>Complaint <span>Management</span></h1>
 
             <p>
-              Review, filter, assign and manage student complaints.
+              Monitor student concerns, manage assignments
+              and keep campus operations running smoothly.
             </p>
           </div>
 
-          <div className="admin-header-icon">🛠️</div>
-        </div>
-
-        {/* FILTER CARD */}
-        <div className="filter-card">
-
-          <div className="filter-title">
-            <span>🔎</span>
-            Search & Filter Complaints
+          <div className="ca-admin-heading-icon">
+            🛠️
           </div>
 
-          <div className="filter-grid">
+        </section>
 
-            {/* SEARCH */}
-            <div className="filter-group search-group">
-              <label>Search</label>
+        {/* STATISTICS */}
+        <section className="ca-admin-stats">
 
+          <div className="ca-stat-card">
+            <div className="ca-stat-icon purple">📋</div>
+            <div>
+              <p>Total Complaints</p>
+              <h2>{totalComplaints}</h2>
+              <small>All submitted complaints</small>
+            </div>
+          </div>
+
+          <div className="ca-stat-card">
+            <div className="ca-stat-icon orange">⏳</div>
+            <div>
+              <p>Pending</p>
+              <h2>{pendingCount}</h2>
+              <small>Awaiting attention</small>
+            </div>
+          </div>
+
+          <div className="ca-stat-card">
+            <div className="ca-stat-icon blue">⚙️</div>
+            <div>
+              <p>In Progress</p>
+              <h2>{progressCount}</h2>
+              <small>Currently being handled</small>
+            </div>
+          </div>
+
+          <div className="ca-stat-card">
+            <div className="ca-stat-icon green">✓</div>
+            <div>
+              <p>Resolved</p>
+              <h2>{resolvedCount}</h2>
+              <small>Successfully completed</small>
+            </div>
+          </div>
+
+        </section>
+
+        {/* FILTER SECTION */}
+        <section className="ca-filter-card">
+
+          <div className="ca-filter-heading">
+            <div>
+              <span>🔎</span>
+              <div>
+                <h2>Find Complaints</h2>
+                <p>Search and filter submitted complaints.</p>
+              </div>
+            </div>
+
+            <button onClick={clearFilters}>
+              ↻ Clear Filters
+            </button>
+          </div>
+
+          <div className="ca-filter-grid">
+
+            <div className="ca-filter-group">
+              <label>Search complaints</label>
               <input
                 type="text"
-                placeholder="Search complaints..."
+                placeholder="Search by title or description..."
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            {/* STATUS */}
-            <div className="filter-group">
+            <div className="ca-filter-group">
               <label>Status</label>
-
               <select
                 value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value)
-                }
+                onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">All Statuses</option>
                 <option value="pending">Pending</option>
@@ -295,18 +360,13 @@ function AdminComplaints() {
               </select>
             </div>
 
-            {/* CATEGORY */}
-            <div className="filter-group">
+            <div className="ca-filter-group">
               <label>Category</label>
-
               <select
                 value={categoryFilter}
-                onChange={(event) =>
-                  setCategoryFilter(event.target.value)
-                }
+                onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="all">All Categories</option>
-
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
@@ -315,15 +375,11 @@ function AdminComplaints() {
               </select>
             </div>
 
-            {/* PRIORITY */}
-            <div className="filter-group">
+            <div className="ca-filter-group">
               <label>Priority</label>
-
               <select
                 value={priorityFilter}
-                onChange={(event) =>
-                  setPriorityFilter(event.target.value)
-                }
+                onChange={(e) => setPriorityFilter(e.target.value)}
               >
                 <option value="all">All Priorities</option>
                 <option value="high">High</option>
@@ -334,197 +390,189 @@ function AdminComplaints() {
 
           </div>
 
-          <div className="filter-bottom">
-            <div className="filter-result">
-              Showing{" "}
-              <strong>{filteredComplaints.length}</strong>{" "}
-              of{" "}
-              <strong>{complaints.length}</strong>{" "}
-              complaints
-            </div>
-
-            <button
-              className="clear-filter-button"
-              onClick={clearFilters}
-            >
-              Clear Filters
-            </button>
+          <div className="ca-filter-results">
+            Showing <strong>{filteredComplaints.length}</strong> of{" "}
+            <strong>{totalComplaints}</strong> complaints
           </div>
 
-        </div>
+        </section>
 
-        {/* MESSAGE */}
+        {/* NOTIFICATION */}
         {message && (
-          <div className="admin-message">
+          <div className="ca-admin-message">
+            <span>ℹ️</span>
             {message}
+            <button onClick={() => setMessage("")}>✕</button>
           </div>
         )}
 
         {/* COMPLAINT LIST */}
-        <div className="admin-list">
+        <section className="ca-complaints-section">
 
-          {filteredComplaints.length === 0 ? (
+          <div className="ca-list-heading">
+            <div>
+              <span className="ca-admin-eyebrow">
+                COMPLAINT RECORDS
+              </span>
+              <h2>All Complaints</h2>
+            </div>
 
-            <div className="admin-empty">
-              <div className="admin-empty-icon">📭</div>
+            <span className="ca-record-count">
+              {filteredComplaints.length} Records
+            </span>
+          </div>
 
+          {loading ? (
+
+            <div className="ca-empty-state">
+              <div>⏳</div>
+              <h2>Loading complaints...</h2>
+            </div>
+
+          ) : filteredComplaints.length === 0 ? (
+
+            <div className="ca-empty-state">
+              <div>📭</div>
               <h2>No complaints found</h2>
-
-              <p>Try changing your search or filters.</p>
+              <p>Try changing your search or filter settings.</p>
             </div>
 
           ) : (
 
-            filteredComplaints.map((complaint) => (
+            <div className="ca-complaint-list">
 
-              <div
-                className="admin-card"
-                key={complaint.id}
-              >
+              {filteredComplaints.map((complaint) => (
 
-                {/* CARD HEADER */}
-                <div className="admin-card-header">
+                <article className="ca-complaint-card" key={complaint.id}>
 
-                  <span className="complaint-number">
-                    Complaint #{complaint.id}
-                  </span>
+                  {/* CARD HEADER */}
+                  <div className="ca-card-top">
 
-                  <span
-                    className={`status-badge ${
-                      complaint.status === "resolved"
-                        ? "status-resolved"
-                        : complaint.status === "in_progress"
-                        ? "status-progress"
-                        : "status-pending"
-                    }`}
-                  >
-                    {complaint.status === "in_progress"
-                      ? "In Progress"
-                      : complaint.status}
-                  </span>
+                    <span className="ca-complaint-id">
+                      COMPLAINT #{complaint.id}
+                    </span>
 
-                </div>
-
-                {/* STUDENT */}
-                <div className="admin-user-info">
-                  👤 Student #{complaint.user_id}
-                </div>
-
-                {/* TITLE */}
-                <h2>{complaint.title}</h2>
-
-                {/* DESCRIPTION */}
-                <p className="complaint-description">
-                  {complaint.description}
-                </p>
-
-                {/* ATTACHED IMAGE */}
-                {complaint.image_file_id && (
-                  <div className="complaint-image-section">
-
-                    <h4>📷 Attached Complaint Image</h4>
-
-                    {complaintImages[complaint.id] ? (
-
-                      <img
-                        src={complaintImages[complaint.id]}
-                        alt={`Complaint ${complaint.id}`}
-                        className="complaint-attached-image"
-                      />
-
-                    ) : (
-
-                      <p>Loading image or image unavailable...</p>
-
-                    )}
+                    <span className={`ca-status-badge ${complaint.status}`}>
+                      {complaint.status === "in_progress"
+                        ? "In Progress"
+                        : complaint.status}
+                    </span>
 
                   </div>
-                )}
 
-                {/* DETAILS */}
-                <div className="complaint-details">
+                  {/* TITLE AND STUDENT */}
+                  <div className="ca-card-title">
+                    <h3>{complaint.title}</h3>
+                    <span>👤 Student #{complaint.user_id}</span>
+                  </div>
 
-                  <span>📁 {complaint.category}</span>
+                  {/* DESCRIPTION */}
+                  <p className="ca-card-description">
+                    {complaint.description}
+                  </p>
 
-                  <span>⚡ {complaint.priority}</span>
+                  {/* IMAGE */}
+                  {complaint.image_file_id && (
+                    <div className="ca-card-image-section">
 
-                  <span>🆔 #{complaint.id}</span>
+                      <h4>📷 Complaint Attachment</h4>
 
-                </div>
+                      {complaintImages[complaint.id] ? (
+                        <a
+                          href={complaintImages[complaint.id]}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img
+                            src={complaintImages[complaint.id]}
+                            alt={`Complaint ${complaint.id}`}
+                            className="ca-complaint-image"
+                          />
+                        </a>
+                      ) : (
+                        <p>Loading image...</p>
+                      )}
 
-                {/* ACTIONS */}
-                <div className="admin-actions">
+                    </div>
+                  )}
 
-                  {/* STATUS */}
-                  <select
-                    className="status-select"
-                    value={complaint.status}
-                    onChange={(event) =>
-                      updateStatus(
-                        complaint.id,
-                        event.target.value
-                      )
-                    }
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
+                  {/* DETAILS */}
+                  <div className="ca-card-details">
 
-                  {/* STAFF SELECTION */}
-                  <select
-                    className="staff-select"
-                    value={selectedStaff[complaint.id] || ""}
-                    onChange={(event) =>
-                      handleStaffChange(
-                        complaint.id,
-                        event.target.value
-                      )
-                    }
-                  >
-                    <option value="">Select Staff</option>
+                    <span>📁 {complaint.category}</span>
 
-                    {staffMembers.map((staff) => (
-                      <option
-                        key={staff.id}
-                        value={staff.id}
+                    <span className={`ca-priority ${complaint.priority}`}>
+                      ⚡ {complaint.priority} priority
+                    </span>
+
+                  </div>
+
+                  {/* ACTIONS */}
+                  <div className="ca-card-actions">
+
+                    <div className="ca-action-group">
+                      <label>Update Status</label>
+
+                      <select
+                        value={complaint.status}
+                        onChange={(e) =>
+                          updateStatus(complaint.id, e.target.value)
+                        }
                       >
-                        {staff.name}
-                      </option>
-                    ))}
-                  </select>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                    </div>
 
-                  {/* ASSIGN */}
-                  <button
-                    className="assign-button"
-                    onClick={() =>
-                      assignComplaint(complaint.id)
-                    }
-                  >
-                    👤 Assign to Staff
-                  </button>
+                    <div className="ca-action-group">
+                      <label>Assign Staff Member</label>
 
-                </div>
+                      <select
+                        value={selectedStaff[complaint.id] || ""}
+                        onChange={(e) =>
+                          handleStaffChange(complaint.id, e.target.value)
+                        }
+                      >
+                        <option value="">Select Staff</option>
 
-              </div>
+                        {staffMembers.map((staff) => (
+                          <option key={staff.id} value={staff.id}>
+                            {staff.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-            ))
+                    <button
+                      className="ca-assign-button"
+                      onClick={() => assignComplaint(complaint.id)}
+                    >
+                      👤 Assign Complaint
+                    </button>
+
+                  </div>
+
+                </article>
+
+              ))}
+
+            </div>
 
           )}
 
-        </div>
+        </section>
 
-      </div>
+        <Link to="/dashboard" className="ca-bottom-back">
+          ← Back to Dashboard
+        </Link>
 
-      {/* BACK TO DASHBOARD */}
-      <a href="/dashboard" className="back-link">
-        ← Back to Dashboard
-      </a>
+      </main>
 
-      {/* FOOTER */}
-      <footer className="main-footer">
-        <p>AI Powered Complaint Management System</p>
-        <p>Admin Dashboard</p>
+      <footer className="ca-admin-footer">
+        <strong>CampusCare</strong>
+        <span>AI-Powered Complaint Management System</span>
+        <span>Admin Dashboard</span>
       </footer>
 
     </div>
