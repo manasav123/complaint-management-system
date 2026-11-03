@@ -414,6 +414,10 @@ def create_complaint(complaint: ComplaintCreate):
 # ---------------------------------------------------------
 # GET USER COMPLAINTS
 # ---------------------------------------------------------
+# ---------------------------------------------------------
+# GET USER COMPLAINTS
+# ---------------------------------------------------------
+
 @app.get("/complaints/user/{user_id}")
 def get_user_complaints(user_id: int):
 
@@ -425,26 +429,39 @@ def get_user_complaints(user_id: int):
             ).sort("created_at", -1)
         )
 
+        result = []
+
+        for complaint in complaints:
+
+            result.append({
+                "id": complaint["id"],
+                "title": complaint["title"],
+                "description": complaint["description"],
+                "category": complaint["category"],
+                "status": complaint["status"],
+                "priority": complaint["priority"],
+                "created_at": complaint["created_at"],
+
+                # IMAGE INFORMATION
+                "image_file_id": (
+                    str(complaint["image_file_id"])
+                    if complaint.get("image_file_id")
+                    else None
+                ),
+
+                "image_filename": complaint.get("image_filename"),
+                "image_content_type": complaint.get("image_content_type")
+            })
+
         return {
-            "complaints": [
-                {
-                    "id": complaint["id"],
-                    "title": complaint["title"],
-                    "description": complaint["description"],
-                    "category": complaint["category"],
-                    "status": complaint["status"],
-                    "priority": complaint["priority"],
-                    "created_at": complaint["created_at"]
-                }
-                for complaint in complaints
-            ]
+            "complaints": result
         }
 
     except Exception as error:
-        return {
-            "error": str(error)
-        }
-
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
 # ---------------------------------------------------------
 # GET ALL COMPLAINTS
 # ---------------------------------------------------------

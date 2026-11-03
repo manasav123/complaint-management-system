@@ -7,12 +7,21 @@ function MyComplaints() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Complaint image states
+  const [complaintImages, setComplaintImages] = useState({});
+  const [imageLoading, setImageLoading] = useState({});
+
+  // Feedback states
   const [ratings, setRatings] = useState({});
   const [comments, setComments] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState({});
   const [submittingFeedback, setSubmittingFeedback] = useState({});
 
+  // Fetch complaints and their attached images
   useEffect(() => {
+    let active = true;
+    const generatedImageUrls = [];
+
     const fetchComplaints = async () => {
       const user = JSON.parse(localStorage.getItem("user"));
 
@@ -36,23 +45,92 @@ function MyComplaints() {
           ? response.data
           : response.data.complaints || [];
 
+        if (!active) return;
+
         setComplaints(data);
 
+        // Fetch images for complaints that have attachments
+        const imageRequests = data
+          .filter((complaint) => complaint.image_file_id)
+          .map(async (complaint) => {
+            if (!active) return;
+
+            setImageLoading((previous) => ({
+              ...previous,
+              [complaint.id]: true,
+            }));
+
+            try {
+              const imageResponse = await api.get(
+                `/complaints/${complaint.id}/image`,
+                {
+                  responseType: "blob",
+                }
+              );
+
+              if (!active) return;
+
+              const imageUrl = URL.createObjectURL(
+                imageResponse.data
+              );
+
+              generatedImageUrls.push(imageUrl);
+
+              setComplaintImages((previous) => ({
+                ...previous,
+                [complaint.id]: imageUrl,
+              }));
+
+            } catch (error) {
+              console.error(
+                `Failed to load image for complaint ${complaint.id}:`,
+                error
+              );
+
+            } finally {
+              if (active) {
+                setImageLoading((previous) => ({
+                  ...previous,
+                  [complaint.id]: false,
+                }));
+              }
+            }
+          });
+
+        await Promise.allSettled(imageRequests);
+
       } catch (error) {
+        console.error("Complaint loading error:", error);
         setMessage("Failed to load complaints.");
-        console.error(error);
 
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchComplaints();
+
+    return () => {
+      active = false;
+
+      generatedImageUrls.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
   }, []);
 
+  // Status styling
   const getStatusClass = (status) => {
-    if (status === "resolved") return "modern-status-resolved";
-    if (status === "in_progress") return "modern-status-progress";
+    if (status === "resolved") {
+      return "modern-status-resolved";
+    }
+
+    if (status === "in_progress") {
+      return "modern-status-progress";
+    }
+
     return "modern-status-pending";
   };
 
@@ -60,6 +138,7 @@ function MyComplaints() {
     return status?.replaceAll("_", " ") || "Pending";
   };
 
+  // Rating handler
   const handleRatingChange = (complaintId, rating) => {
     setRatings((previous) => ({
       ...previous,
@@ -67,6 +146,7 @@ function MyComplaints() {
     }));
   };
 
+  // Comment handler
   const handleCommentChange = (complaintId, comment) => {
     setComments((previous) => ({
       ...previous,
@@ -74,6 +154,7 @@ function MyComplaints() {
     }));
   };
 
+  // Submit feedback
   const submitFeedback = async (complaintId) => {
     const user = JSON.parse(localStorage.getItem("user"));
 
@@ -121,7 +202,8 @@ function MyComplaints() {
 
       setFeedbackMessage((previous) => ({
         ...previous,
-        [complaintId]: "Thank you! Your feedback was submitted successfully.",
+        [complaintId]:
+          "Thank you! Your feedback was submitted successfully.",
       }));
 
       setRatings((previous) => ({
@@ -150,6 +232,7 @@ function MyComplaints() {
     }
   };
 
+  // Complaint statistics
   const pendingCount = complaints.filter(
     (item) => item.status === "pending"
   ).length;
@@ -170,17 +253,25 @@ function MyComplaints() {
       <nav className="complaints-navbar">
 
         <Link to="/dashboard" className="complaints-brand">
-          <div className="complaints-brand-icon">🏛️</div>
+
+          <div className="complaints-brand-icon">
+            🏛️
+          </div>
 
           <div>
             <h2>CampusCare</h2>
             <p>SMART CAMPUS SOLUTIONS</p>
           </div>
+
         </Link>
 
         <div className="complaints-nav-links">
           <Link to="/dashboard">Dashboard</Link>
-          <Link to="/complaint">Submit Complaint</Link>
+
+          <Link to="/complaint">
+            Submit Complaint
+          </Link>
+
           <Link to="/my-complaints" className="active">
             My Complaints
           </Link>
@@ -196,6 +287,7 @@ function MyComplaints() {
         <section className="my-complaints-hero">
 
           <div>
+
             <span className="my-complaints-tag">
               📋 STUDENT WORKSPACE
             </span>
@@ -208,6 +300,7 @@ function MyComplaints() {
               Keep track of your submitted complaints
               and stay updated on their progress.
             </p>
+
           </div>
 
           <div className="my-complaints-hero-icon">
@@ -220,60 +313,92 @@ function MyComplaints() {
         {/* STATISTICS */}
 
         {!loading && (
+
           <section className="complaint-statistics">
 
             <div className="complaint-stat-card">
-              <div className="stat-icon stat-total">📋</div>
+
+              <div className="stat-icon stat-total">
+                📋
+              </div>
+
               <div>
                 <span>TOTAL COMPLAINTS</span>
                 <h2>{complaints.length}</h2>
               </div>
+
             </div>
 
+
             <div className="complaint-stat-card">
-              <div className="stat-icon stat-pending">⏳</div>
+
+              <div className="stat-icon stat-pending">
+                ⏳
+              </div>
+
               <div>
                 <span>PENDING</span>
                 <h2>{pendingCount}</h2>
               </div>
+
             </div>
 
+
             <div className="complaint-stat-card">
-              <div className="stat-icon stat-progress">🔄</div>
+
+              <div className="stat-icon stat-progress">
+                🔄
+              </div>
+
               <div>
                 <span>IN PROGRESS</span>
                 <h2>{progressCount}</h2>
               </div>
+
             </div>
 
+
             <div className="complaint-stat-card">
-              <div className="stat-icon stat-resolved">✅</div>
+
+              <div className="stat-icon stat-resolved">
+                ✅
+              </div>
+
               <div>
                 <span>RESOLVED</span>
                 <h2>{resolvedCount}</h2>
               </div>
+
             </div>
 
           </section>
+
         )}
 
 
         {/* LOADING */}
 
         {loading && (
+
           <div className="complaints-loading">
+
             <div className="complaints-spinner"></div>
+
             <p>Loading your complaints...</p>
+
           </div>
+
         )}
 
 
         {/* ERROR MESSAGE */}
 
         {!loading && message && (
+
           <div className="modern-complaint-message">
             ⚠️ {message}
           </div>
+
         )}
 
 
@@ -283,7 +408,9 @@ function MyComplaints() {
 
           <div className="modern-empty-state">
 
-            <div className="modern-empty-icon">📋</div>
+            <div className="modern-empty-icon">
+              📋
+            </div>
 
             <h2>No complaints yet</h2>
 
@@ -311,6 +438,7 @@ function MyComplaints() {
           <section className="modern-complaints-list">
 
             <div className="complaints-list-heading">
+
               <div>
                 <h2>Your Submitted Complaints</h2>
                 <p>View details and monitor each complaint.</p>
@@ -322,8 +450,11 @@ function MyComplaints() {
               >
                 + New Complaint
               </Link>
+
             </div>
 
+
+            {/* INDIVIDUAL COMPLAINT CARDS */}
 
             {complaints.map((complaint) => (
 
@@ -337,11 +468,13 @@ function MyComplaints() {
                 <div className="modern-complaint-header">
 
                   <div>
+
                     <span className="modern-complaint-number">
                       COMPLAINT #{complaint.id}
                     </span>
 
                     <h3>{complaint.title}</h3>
+
                   </div>
 
                   <span
@@ -362,6 +495,61 @@ function MyComplaints() {
                 </p>
 
 
+                {/* ATTACHED IMAGE */}
+
+                {complaint.image_file_id && (
+
+                  <div className="modern-complaint-image-section">
+
+                    <h4>
+                      📷 Attached Image
+                    </h4>
+
+                    {imageLoading[complaint.id] && (
+
+                      <div className="complaint-image-loading">
+                        Loading attached image...
+                      </div>
+
+                    )}
+
+                    {complaintImages[complaint.id] && (
+
+                      <a
+                        href={complaintImages[complaint.id]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="modern-complaint-image-link"
+                      >
+
+                        <img
+                          src={complaintImages[complaint.id]}
+                          alt={`Image attached to complaint ${complaint.id}`}
+                          className="modern-complaint-image"
+                        />
+
+                        <span>
+                          Click to view full image
+                        </span>
+
+                      </a>
+
+                    )}
+
+                    {!imageLoading[complaint.id] &&
+                      !complaintImages[complaint.id] && (
+
+                        <p className="complaint-image-error">
+                          Image could not be loaded.
+                        </p>
+
+                      )}
+
+                  </div>
+
+                )}
+
+
                 {/* DETAILS */}
 
                 <div className="modern-complaint-details">
@@ -378,7 +566,9 @@ function MyComplaints() {
 
                   <div>
                     <span>📌 STATUS</span>
-                    <strong>{formatStatus(complaint.status)}</strong>
+                    <strong>
+                      {formatStatus(complaint.status)}
+                    </strong>
                   </div>
 
                 </div>
@@ -398,6 +588,7 @@ function MyComplaints() {
 
                       <div>
                         <h3>How was your experience?</h3>
+
                         <p>
                           Your feedback helps us improve
                           our complaint resolution process.
@@ -468,9 +659,11 @@ function MyComplaints() {
 
 
                     {feedbackMessage[complaint.id] && (
+
                       <div className="modern-feedback-message">
                         {feedbackMessage[complaint.id]}
                       </div>
+
                     )}
 
                   </div>
@@ -488,7 +681,10 @@ function MyComplaints() {
 
         {/* BACK BUTTON */}
 
-        <Link to="/dashboard" className="complaints-back-link">
+        <Link
+          to="/dashboard"
+          className="complaints-back-link"
+        >
           ← Back to Dashboard
         </Link>
 

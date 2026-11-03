@@ -8117,3 +8117,73 @@ height: 52px;
   }
 
 }
+/* ========================================
+   STUDENT COMPLAINT IMAGE DISPLAY
+======================================== */
+
+.modern-complaint-image-section {
+  margin: 22px 0;
+  padding: 17px;
+  background: #f8f9ff;
+  border: 1px solid #e5e7ff;
+  border-radius: 16px;
+}
+
+.modern-complaint-image-section h4 {
+  margin: 0 0 13px;
+  color: #4937cf;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.modern-complaint-image-link {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 9px;
+  text-decoration: none;
+  max-width: 100%;
+}
+
+.modern-complaint-image {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #e2e5f0;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.modern-complaint-image:hover {
+  transform: scale(1.02);
+}
+
+.modern-complaint-image-link span {
+  color: #604be9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.complaint-image-loading {
+  padding: 15px;
+  color: #777b91;
+  font-size: 13px;
+}
+
+.complaint-image-error {
+  color: #dc5555;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .modern-complaint-image-section {
+    padding: 12px;
+  }
+
+  .modern-complaint-image {
+    max-width: 100%;
+    max-height: 230px;
+  }
+}
