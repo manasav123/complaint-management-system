@@ -1132,7 +1132,7 @@ def submit_feedback(
 @app.post("/ai/chat")
 def ai_chat(
     data: ChatRequest,
-    current_user: dict = Depends(require_role("student"))
+    current_user: dict = Depends(require_role("student", "staff", "admin"))
 ):
     try:
         print("CHATBOT REQUEST RECEIVED")
