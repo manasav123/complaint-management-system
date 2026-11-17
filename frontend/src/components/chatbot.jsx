@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import api from "../services/api";
 import "./chatbot.css";
 
 function Chatbot() {
@@ -11,7 +12,7 @@ function Chatbot() {
   const [messages, setMessages] = useState([
     {
       sender: "bot",
-      text: "Hey there! 👋 Welcome to CampusCare. I'm your campus assistant. How can I help you today?",
+      text: "Hey there! 👋 Welcome to CampusCare. I'm your AI campus assistant. How can I help you today?",
       time: new Date()
     }
   ]);
@@ -22,93 +23,64 @@ function Chatbot() {
     "How does AI work?"
   ];
 
-  const getBotResponse = (message) => {
-    const text = message.toLowerCase();
-
-    if (
-      text.includes("track") ||
-      text.includes("status") ||
-      text.includes("progress")
-    ) {
-      return "You can track your complaint status from the My Complaints page. 📋";
-    }
-
-    if (
-      text.includes("submit") ||
-      text.includes("report an issue") ||
-      text.includes("raise a complaint")
-    ) {
-      return "You can submit a complaint by logging in as a student and opening the Submit Complaint page. 📝";
-    }
-
-    if (text.includes("login") || text.includes("sign in")) {
-      return "Click the Login button and enter your registered email and password. 🔐";
-    }
-
-    if (text.includes("register") || text.includes("signup")) {
-      return "Click Register on the home page to create your account. 🎓";
-    }
-
-    if (text.includes("ai")) {
-      return "Our system uses rule-based AI to identify complaint categories and priorities automatically. 🤖";
-    }
-
-    if (text.includes("image") || text.includes("photo")) {
-      return "You can attach photographs as evidence when submitting a complaint. 📸";
-    }
-
-    if (
-      text.includes("hello") ||
-      text.includes("hi") ||
-      text.includes("hey")
-    ) {
-      return "Hello! 😊 How can I assist you today?";
-    }
-
-    if (text.includes("thank")) {
-      return "You're welcome! Happy to help. ❤️";
-    }
-
-    return "I'm here to help! Ask me about complaint submission, tracking, login, registration or AI classification.";
-  };
-
+  // Automatically scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth"
     });
   }, [messages, isTyping]);
 
-  const sendMessage = (customMessage) => {
-    const userMessage = (customMessage || input).trim();
+  // SEND MESSAGE TO GEMINI AI
+  const sendMessage = async (customMessage) => {
+  const userMessage = (customMessage || input).trim();
 
-    if (!userMessage || isTyping) return;
+  if (!userMessage || isTyping) return;
+
+  setMessages((previous) => [
+    ...previous,
+    {
+      sender: "user",
+      text: userMessage,
+      time: new Date()
+    }
+  ]);
+
+  setInput("");
+  setIsTyping(true);
+
+  try {
+    const response = await api.post("/ai/chat", {
+      message: userMessage
+    });
 
     setMessages((previous) => [
       ...previous,
       {
-        sender: "user",
-        text: userMessage,
+        sender: "bot",
+        text: response.data.reply,
         time: new Date()
       }
     ]);
 
-    setInput("");
-    setIsTyping(true);
+  } catch (error) {
+    console.error("Chatbot error:", error);
 
-    setTimeout(() => {
-      setMessages((previous) => [
-        ...previous,
-        {
-          sender: "bot",
-          text: getBotResponse(userMessage),
-          time: new Date()
-        }
-      ]);
+    setMessages((previous) => [
+      ...previous,
+      {
+        sender: "bot",
+        text: error.response?.data?.detail ||
+          "Sorry, something went wrong. Please try again.",
+        time: new Date()
+      }
+    ]);
 
-      setIsTyping(false);
-    }, 900);
-  };
+  } finally {
+    setIsTyping(false);
+  }
+};
 
+  // FORMAT MESSAGE TIME
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString([], {
       hour: "2-digit",
@@ -138,7 +110,7 @@ function Chatbot() {
                 <h3>CampusCare Assistant</h3>
                 <span>
                   <span className="online-indicator"></span>
-                  Online · Ready to help
+                  AI Assistant · Ready to help
                 </span>
               </div>
 
@@ -154,7 +126,6 @@ function Chatbot() {
 
           </div>
 
-
           {/* WELCOME BANNER */}
 
           <div className="chatbot-welcome">
@@ -169,7 +140,6 @@ function Chatbot() {
             </div>
 
           </div>
-
 
           {/* MESSAGES */}
 
@@ -204,7 +174,6 @@ function Chatbot() {
 
             ))}
 
-
             {/* TYPING INDICATOR */}
 
             {isTyping && (
@@ -225,11 +194,9 @@ function Chatbot() {
 
             )}
 
-
             <div ref={messagesEndRef}></div>
 
           </div>
-
 
           {/* SUGGESTIONS */}
 
@@ -246,6 +213,7 @@ function Chatbot() {
                   <button
                     key={index}
                     onClick={() => sendMessage(suggestion)}
+                    disabled={isTyping}
                   >
                     {suggestion} →
                   </button>
@@ -257,7 +225,6 @@ function Chatbot() {
             </div>
 
           )}
-
 
           {/* INPUT */}
 
@@ -274,6 +241,7 @@ function Chatbot() {
               placeholder="Ask me anything..."
               value={input}
               onChange={(event) => setInput(event.target.value)}
+              disabled={isTyping}
             />
 
             <button
@@ -286,15 +254,13 @@ function Chatbot() {
 
           </form>
 
-
           <div className="chatbot-footer">
-            Powered by CampusCare · Rule-based Assistant
+            Powered by CampusCare · Gemini AI
           </div>
 
         </div>
 
       )}
-
 
       {/* FLOATING BUTTON */}
 

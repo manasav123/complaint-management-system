@@ -1,11 +1,28 @@
 from datetime import datetime
 import io
 import os
+import base64
+import hashlib
+import hmac
+import json
+import time
+import re
+
+from pathlib import Path
+from dotenv import load_dotenv
+from google import genai
+
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from passlib.context import CryptContext
+
+# Load environment variables
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+# Database imports
 from backend.database import (
     database,
     users_collection,
@@ -14,19 +31,17 @@ from backend.database import (
     feedback_collection,
     images_bucket
 )
-from passlib.context import CryptContext
 
-import base64
-import hashlib
-import hmac
-import json
-import time
+# Gemini configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
+gemini_client = (
+    genai.Client(api_key=GEMINI_API_KEY)
+    if GEMINI_API_KEY else None
+)
 
-# ---------------------------------------------------------
-# APP
-# ---------------------------------------------------------
-
+# Initialize FastAPI
 app = FastAPI()
 
 
@@ -233,6 +248,8 @@ class ComplaintAssignment(BaseModel):
 class FeedbackCreate(BaseModel):
     rating: int
     comment: str = ""
+class ChatRequest(BaseModel):
+    message: str
 
 
 # ---------------------------------------------------------
@@ -930,123 +947,98 @@ def get_complaint_image(
 # AI COMPLAINT CLASSIFICATION
 # ---------------------------------------------------------
 
+# ---------------------------------------------------------
+# GEMINI AI COMPLAINT CLASSIFICATION
+# ---------------------------------------------------------
+
 @app.post("/ai/classify")
 def classify_complaint(data: dict):
 
     try:
+        if not gemini_client:
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini API key is not configured"
+            )
+
         title = data.get("title", "")
         description = data.get("description", "")
 
-        text = f"{title} {description}".lower()
+        if not title and not description:
+            raise HTTPException(
+                status_code=400,
+                detail="Complaint title or description is required"
+            )
 
-        category = "Other"
-        priority = "medium"
+        prompt = f"""
+        You are an AI complaint classification system
+        for a college complaint management application.
 
-        # Category detection
+        Analyze this complaint.
 
-        if any(
-            word in text
-            for word in [
-                "hostel",
-                "hostel room",
-                "water supply",
-                "mess",
-                "food",
-                "bathroom",
-                "warden"
-            ]
-        ):
-            category = "Hostel"
+        Title: {title}
+        Description: {description}
 
-        elif any(
-            word in text
-            for word in [
-                "library",
-                "book",
-                "books",
-                "reading room"
-            ]
-        ):
-            category = "Library"
+        Choose exactly one category:
+        Hostel, Library, Infrastructure, Transport, Academic, Other
 
-        elif any(
-            word in text
-            for word in [
-                "classroom",
-                "building",
-                "fan",
-                "light",
-                "electricity",
-                "infrastructure",
-                "bench",
-                "lift"
-            ]
-        ):
-            category = "Infrastructure"
+        Choose priority:
+        low, medium, high
 
-        elif any(
-            word in text
-            for word in [
-                "bus",
-                "transport",
-                "vehicle",
-                "driver"
-            ]
-        ):
-            category = "Transport"
+        Return only JSON in this format:
+        {{
+            "category": "Hostel",
+            "priority": "high"
+        }}
+        """
 
-        elif any(
-            word in text
-            for word in [
-                "exam",
-                "marks",
-                "teacher",
-                "faculty",
-                "course",
-                "attendance",
-                "assignment"
-            ]
-        ):
-            category = "Academic"
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json"
+            }
+        )
 
-        # Priority detection
+        result = json.loads(response.text)
 
-        if any(
-            word in text
-            for word in [
-                "urgent",
-                "emergency",
-                "danger",
-                "immediately",
-                "critical",
-                "not working",
-                "no water",
-                "fire"
-            ]
-        ):
-            priority = "high"
+        allowed_categories = [
+            "Hostel",
+            "Library",
+            "Infrastructure",
+            "Transport",
+            "Academic",
+            "Other"
+        ]
 
-        elif any(
-            word in text
-            for word in [
-                "minor",
-                "small",
-                "suggestion"
-            ]
-        ):
-            priority = "low"
+        allowed_priorities = [
+            "low",
+            "medium",
+            "high"
+        ]
+
+        category = result.get("category")
+        priority = result.get("priority")
+
+        if category not in allowed_categories:
+            category = "Other"
+
+        if priority not in allowed_priorities:
+            priority = "medium"
 
         return {
             "category": category,
             "priority": priority
         }
 
+    except HTTPException:
+        raise
+
     except Exception as error:
-
-        return {
-            "error": str(error)
-        }
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gemini classification failed: {str(error)}"
+        )
 
 # ---------------------------------------------------------
 # SUBMIT COMPLAINT FEEDBACK
@@ -1120,4 +1112,334 @@ def submit_feedback(
         raise HTTPException(
             status_code=500,
             detail=str(error)
+        )
+# ---------------------------------------------------------
+# GEMINI AI CHATBOT
+# ---------------------------------------------------------
+
+# ---------------------------------------------------------
+# GEMINI AI CHATBOT WITH REAL COMPLAINT STATUS
+# ---------------------------------------------------------
+# --------------------------------------------------
+# GEMINI CHATBOT REQUEST MODEL
+# --------------------------------------------------
+
+
+# --------------------------------------------------
+# GEMINI AI CHATBOT
+# --------------------------------------------------
+
+@app.post("/ai/chat")
+def ai_chat(
+    data: ChatRequest,
+    current_user: dict = Depends(require_role("student"))
+):
+    try:
+        print("CHATBOT REQUEST RECEIVED")
+
+        message = data.message.strip()
+
+        if not message:
+            raise HTTPException(
+                status_code=400,
+                detail="Message cannot be empty"
+            )
+
+        user_id = current_user["user_id"]
+
+        # Retrieve only this student's latest 10 complaints
+        complaints = list(
+            complaints_collection.find(
+                {"user_id": user_id},
+                {
+                    "_id": 0,
+                    "id": 1,
+                    "title": 1,
+                    "category": 1,
+                    "status": 1,
+                    "priority": 1
+                }
+            ).sort("created_at", -1).limit(10)
+        )
+
+        # Calculate analytics
+        total = len(complaints)
+
+        pending = sum(
+            1 for c in complaints
+            if c.get("status") == "pending"
+        )
+
+        in_progress = sum(
+            1 for c in complaints
+            if c.get("status") == "in_progress"
+        )
+
+        resolved = sum(
+            1 for c in complaints
+            if c.get("status") == "resolved"
+        )
+
+        category_counts = {}
+
+        for complaint in complaints:
+            category = complaint.get("category", "Other")
+            category_counts[category] = (
+                category_counts.get(category, 0) + 1
+            )
+
+        analytics = {
+            "total_complaints": total,
+            "pending": pending,
+            "in_progress": in_progress,
+            "resolved": resolved,
+            "category_counts": category_counts
+        }
+
+        lower_message = message.lower()
+
+        # --------------------------------
+        # 1. GREETINGS - NO GEMINI REQUEST
+        # --------------------------------
+
+        greetings = [
+            "hi", "hello", "hey", "good morning",
+            "good afternoon", "good evening"
+        ]
+
+        if lower_message.strip(" !.,?") in greetings:
+            return {
+                "reply": (
+                    "Hello! Welcome to CampusCare. "
+                    "How can I help you with your college complaints today?"
+                )
+            }
+
+        # --------------------------------
+        # 2. COMPLAINT STATISTICS - NO GEMINI
+        # --------------------------------
+
+        statistics_keywords = [
+            "statistics", "stats", "how many complaints",
+            "complaint count", "total complaints",
+            "my complaints summary"
+        ]
+
+        if any(word in lower_message for word in statistics_keywords):
+
+            return {
+                "reply": (
+                    f"Here are your complaint statistics based on "
+                    f"your latest 10 retrieved complaints:\n"
+                    f"Total complaints: {total}\n"
+                    f"Pending: {pending}\n"
+                    f"In progress: {in_progress}\n"
+                    f"Resolved: {resolved}\n"
+                    f"Category counts: {category_counts}"
+                )
+            }
+
+        # --------------------------------
+        # 3. MOST COMMON CATEGORY - NO GEMINI
+        # --------------------------------
+
+        if (
+            "most common category" in lower_message
+            or "most common complaint category" in lower_message
+            or "common category" in lower_message
+            or "popular category" in lower_message
+            or "which category" in lower_message
+        ):
+            if not category_counts:
+                reply = "You don't have any complaints in the latest 10 retrieved records."
+
+            else:
+                highest = max(category_counts.values())
+
+                common_categories = [
+                    category
+                    for category, count in category_counts.items()
+                    if count == highest
+                ]
+
+                reply = (
+                    f"Your most common complaint category is "
+                    f"{', '.join(common_categories)}, "
+                    f"with {highest} complaint(s). "
+                    f"This is based on your latest 10 retrieved complaints."
+                )
+
+            return {"reply": reply}
+
+        # --------------------------------
+        # 4. LATEST COMPLAINT STATUS - NO GEMINI
+        # --------------------------------
+
+        if (
+            "status" in lower_message
+            or "latest complaint" in lower_message
+        ):
+            if not complaints:
+                return {
+                    "reply": "You have no complaints in the latest 10 retrieved records."
+                }
+
+            id_match = re.search(
+                r"\b(?:complaint\s*)?#?(\d+)\b",
+                lower_message
+            )
+
+            if id_match:
+                requested_id = int(id_match.group(1))
+
+                selected = next(
+                    (
+                        c for c in complaints
+                        if str(c.get("id")) == str(requested_id)
+                    ),
+                    None
+                )
+
+                if not selected:
+                    return {
+                        "reply": (
+                            f"I couldn't find complaint ID {requested_id} "
+                            "in your latest 10 retrieved complaints."
+                        )
+                    }
+
+            else:
+                selected = complaints[0]
+
+            reply = (
+                f"Your complaint ID {selected.get('id')} "
+                f"titled '{selected.get('title')}' "
+                f"has status: {selected.get('status')}.\n"
+                f"Priority: {selected.get('priority')}.\n"
+            )
+
+            if selected.get("status") == "pending":
+                reply += (
+                    "Your complaint is waiting for staff action. "
+                    "You can contact the complaint administrator "
+                    "if it has been pending for a long time."
+                )
+
+            elif selected.get("status") == "in_progress":
+                reply += (
+                    "Staff are working on your complaint. "
+                    "Please wait for further updates."
+                )
+
+            elif selected.get("status") == "resolved":
+                reply += (
+                    "Has your issue actually been fixed? "
+                    "If not, please contact the complaint administrator."
+                )
+
+            return {"reply": reply}
+
+        # --------------------------------
+        # 5. COMPLAINT SUBMISSION - NO GEMINI
+        # --------------------------------
+
+        if (
+            "submit complaint" in lower_message
+            or "submit a complaint" in lower_message
+            or "how do i submit" in lower_message
+            or "how to submit" in lower_message
+            or "how to complain" in lower_message
+            or "raise a complaint" in lower_message
+            or "create a complaint" in lower_message
+        ):
+            return {
+                "reply": (
+                    "To submit a complaint:\n"
+                    "1. Log in to your CampusCare account.\n"
+                    "2. Open the Submit Complaint page.\n"
+                    "3. Enter your complaint title.\n"
+                    "4. Select the category and priority.\n"
+                    "5. Describe your problem.\n"
+                    "6. Attach an image if needed.\n"
+                    "7. Click Submit Complaint.\n"
+                    "You can track your complaint from My Complaints."
+                )
+            }
+            
+                    # --------------------------------
+        # 6. GENERAL QUESTIONS - USE GEMINI
+        # --------------------------------
+
+        if not gemini_client:
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini API key is not configured."
+            )
+
+        complaint_data = json.dumps(
+            complaints,
+            default=str
+        )
+
+        analytics_data = json.dumps(analytics)
+
+        prompt = f"""
+You are CampusCare AI Assistant.
+
+Help students with college complaint management.
+
+Student's latest 10 complaints:
+{complaint_data}
+
+Complaint analytics:
+{analytics_data}
+
+Student question:
+{message}
+
+Rules:
+1. Give short, friendly and helpful answers.
+2. Use simple English.
+3. Never invent complaint IDs, statuses or statistics.
+4. Never reveal another student's information.
+5. Explain college complaint procedures when asked.
+6. For pending complaints, suggest contacting the administrator
+   if they have been pending for a long time.
+7. For in-progress complaints, explain that staff are working on them.
+8. For resolved complaints, ask whether the issue was actually fixed.
+9. Never promise a specific resolution time.
+10. Analytics refer only to the latest 10 retrieved complaints.
+11. Use plain text without Markdown formatting.
+
+Answer the student helpfully.
+"""
+
+        print("SENDING MESSAGE TO GEMINI...")
+
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt
+        )
+
+        print("GEMINI RESPONSE RECEIVED")
+
+        reply = response.text or "Sorry, I couldn't generate a response."
+
+        reply = re.sub(r"\*+", "", reply)
+        reply = re.sub(r"#+\s*", "", reply)
+
+        return {"reply": reply.strip()}
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        print("GEMINI CHAT ERROR:", repr(error))
+
+        import traceback
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Sorry, the AI assistant is temporarily unavailable. Please try again."
         )
